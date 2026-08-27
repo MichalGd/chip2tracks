@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a reproducible workflow problem without uploading sensitive reads.
+title: "[bug] "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: Problem
+      description: Describe the observed and expected behavior.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: chip2tracks version or commit
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Assay profile
+      options: [chipseq, chipmentation]
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Redacted diagnostics
+      description: Include the failing stage, command log excerpt, software versions, and minimal redacted metadata. Do not attach FASTQs or personal data.
+  - type: checkboxes
+    attributes:
+      label: Safety
+      options:
+        - label: I removed secrets, identifying information, and controlled-access data.
+          required: true

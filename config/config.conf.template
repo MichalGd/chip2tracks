@@ -1,0 +1,233 @@
+# chip2tracks 0.1.0 configuration
+# Plain KEY=VALUE syntax only. Shell expressions and command substitutions are rejected.
+
+# Required run inputs
+SAMPLESHEET=/absolute/path/to/samplesheet.csv
+OUTPUT_DIR=/absolute/path/to/results
+ASSAY_PROFILE=chipseq
+RUN_ID=auto
+ALLOW_MIXED_LAYOUTS=false
+ALLOW_MIXED_GENOMES=false
+
+# Host references. Add the same reference-key set for other assemblies.
+INDEX_HG38=/opt/bioinformatics/references/hg38/bowtie2/hg38
+FASTA_HG38=/opt/bioinformatics/references/hg38/hg38.fa
+CHROM_SIZES_HG38=/opt/bioinformatics/references/hg38/hg38.chrom.sizes
+CANONICAL_CONTIGS_HG38=/opt/bioinformatics/references/cutnrun2tracks/0.2.0/hg38/hg38.canonical_contigs.txt
+GTF_HG38=/opt/bioinformatics/ATACseq2tracks_shared/references/hg38/annotation.gtf
+BLACKLIST_HG38=/opt/bioinformatics/ATACseq2tracks_shared/references/hg38/hg38.blacklist.bed
+EFFECTIVE_GENOME_SIZE_HG38=2913022398
+TSS_BED_HG38=
+CCRE_BED_HG38=/opt/bioinformatics/ATACseq2tracks_shared/references/hg38/hg38.ccre.bed.gz
+
+INDEX_MM39=/opt/bioinformatics/references/mm39/bowtie2/mm39
+FASTA_MM39=/opt/bioinformatics/references/mm39/mm39.fa
+CHROM_SIZES_MM39=/opt/bioinformatics/references/mm39/mm39.chrom.sizes
+CANONICAL_CONTIGS_MM39=/opt/bioinformatics/references/cutnrun2tracks/0.2.0/mm39/mm39.canonical_contigs.txt
+GTF_MM39=/opt/bioinformatics/ATACseq2tracks_shared/references/mm39/annotation.gtf
+BLACKLIST_MM39=/opt/bioinformatics/ATACseq2tracks_shared/references/mm39/mm39.blacklist.bed
+EFFECTIVE_GENOME_SIZE_MM39=2654621783
+TSS_BED_MM39=
+CCRE_BED_MM39=/opt/bioinformatics/ATACseq2tracks_shared/references/mm39/mm39.ccre.bed
+
+# Preprocessing
+TRIM_ADAPTERS=true
+# auto asks Trim Galore to infer common Illumina/Nextera adapters from reads.
+# Use illumina, nextera, or custom when the laboratory protocol is known or
+# auto-detection is ambiguous. Custom mode requires CUSTOM_ADAPTER_R1.
+ADAPTER_PRESET=auto
+CUSTOM_ADAPTER_R1=
+CUSTOM_ADAPTER_R2=
+ADAPTER_AUTO_DETECTION_REQUIRED=false
+TRIMGALORE_EXTRA_ARGS=
+MIN_TRIMMED_LENGTH=20
+RUN_FASTQC=true
+RUN_MULTIQC=true
+# RUN_MULTIQC controls both the preprocessing FastQC summary and the final
+# unified report over retained workflow logs, QC tables, and custom content.
+THREADS_FASTQC=10
+THREADS_TRIMGALORE=8
+
+# Alignment
+BOWTIE2_MODE=end-to-end
+BOWTIE2_PRESET=very-sensitive
+BOWTIE2_MIN_INSERT=10
+BOWTIE2_MAX_INSERT=2000
+BOWTIE2_DOVETAIL=true
+BOWTIE2_MIXED=false
+BOWTIE2_DISCORDANT=false
+BOWTIE2_SEED=0
+BOWTIE2_EXTRA_ARGS=
+THREADS_BOWTIE2=8
+THREADS_SAMTOOLS=4
+
+# Filtering and duplicates
+MIN_MAPQ=30
+PERMISSIVE_MIN_MAPQ=0
+INTERMEDIATE_MIN_MAPQ=0
+REMOVE_MITO=true
+ALLOW_EMPTY_FILTERED_BAM=false
+# UMI-aware processing is deliberately out of scope for v0.1.
+UMI_BARCODE_TAG=
+PICARD_COMMAND=picard
+
+# Peak calling
+PEAK_CALLERS=macs3,epic2
+PRIMARY_PEAK_CALLER=auto
+ALLOW_SHARED_CONTROLS=true
+ALLOW_CONTROL_FREE_PEAKCALL=true
+ALLOW_EMPTY_PEAKS=false
+# fail: any enabled caller error stops peak calling; continue: record the
+# per-sample error and continue with unaffected samples and cohorts.
+PEAKCALL_FAILURE_POLICY=continue
+MACS3_COMMAND=macs3
+MACS3_QVALUE=0.01
+MACS3_BROAD_CUTOFF=0.1
+MACS3_KEEP_DUP=all
+MACS3_CALL_SUMMITS=true
+MACS3_SE_MODE=model
+MACS3_SE_SHIFT=0
+MACS3_SE_EXTSIZE=200
+MACS3_GENERATE_SIGNAL_TRACKS=true
+# epic2 is the primary broad-domain caller; MACS3 broad is retained as a
+# companion sensitivity call because no caller is universally best.
+EPIC2_COMMAND=epic2
+EPIC2_BIN_SIZE=200
+EPIC2_GAP_SIZE=3
+EPIC2_FDR=0.05
+EPIC2_FRAGMENT_SIZE=200
+
+# Consensus and coverage
+CONSENSUS_MIN_BIOLOGICAL_SAMPLES=2
+ALLOW_SINGLE_SAMPLE_CONSENSUS=false
+# The ATACseq2tracks-style biological-support consensus is the primary and
+# default reproducibility method. IDR is an optional supplementary analysis.
+RUN_IDR=false
+IDR_COMMAND=idr
+IDR_SOFT_THRESHOLD=0.05
+IDR_RANK=signal.value
+IDR_MACS3_PVALUE=0.1
+# false: unavailable consensus or invalid/zero consensus counts skip only the
+# affected cohort/track family; true: either condition stops normalized_tracks.
+REQUIRE_ALL_ENABLED_TRACKS=false
+GENERATE_CPM_TRACKS=true
+# Additional CPM views use fixed, documented BAM policies. The top-level CPM
+# family remains the sample's configured analysis policy.
+GENERATE_CPM_PERMISSIVE_TRACKS=true
+GENERATE_CPM_INTERMEDIATE_TRACKS=true
+GENERATE_CPM_STRINGENT_TRACKS=true
+GENERATE_DESEQ2_CONSENSUS_TRACKS=true
+GENERATE_DESEQ2_ROBUST_CPM_PERMISSIVE_TRACKS=true
+GENERATE_DESEQ2_ROBUST_CPM_INTERMEDIATE_TRACKS=true
+GENERATE_DESEQ2_ROBUST_CPM_STRINGENT_TRACKS=true
+GENERATE_COVERAGE_BIGWIGS=true
+GENERATE_COVERAGE_BEDGRAPHS=true
+TRACK_BIN_SIZE=10
+# SE coverage defaults to MACS3-estimated fragment extension. Set
+# SE_FRAGMENT_LENGTH to a positive integer to override estimation, or use
+# SE_SIGNAL_MODE=read for unextended read coverage.
+SE_SIGNAL_MODE=extend
+SE_FRAGMENT_LENGTH=auto
+SE_FRAGMENT_LENGTH_FALLBACK=200
+BAMCOVERAGE_COMMON_ARGS=
+THREADS_BAMCOVERAGE=4
+
+# Spike-in. The laboratory adds Drosophila cells before the experiment.
+# SPIKEIN_INDEX must be a competitive host+dm6 composite Bowtie2 index.
+SPIKEIN_MODE=none
+SPIKEIN_REFERENCE_ID=
+SPIKEIN_INDEX=
+SPIKEIN_FASTA=
+SPIKEIN_CHROM_SIZES=
+SPIKEIN_ALLOWED_CONTIGS=
+SPIKEIN_BLACKLIST=
+SPIKEIN_DUPLICATE_POLICY=remove
+SPIKEIN_SCALE_TARGET=1000000
+SPIKEIN_MIN_MAPQ=30
+SPIKEIN_MIN_OBSERVATIONS_FAIL=1000
+SPIKEIN_MIN_OBSERVATIONS_WARN=10000
+SPIKEIN_WARN_LOW_FRACTION=0.001
+SPIKEIN_WARN_HIGH_FRACTION=0.20
+ALLOW_FAILED_SPIKEIN=false
+GENERATE_SPIKEIN_CONTROL_TRACKS=true
+
+# ChIP QC
+RUN_FRAGMENT_QC=true
+FRAGMENT_PLOT_MAX_BP=1000
+RUN_TSS_SIGNAL_PROFILE=true
+TSS_PROFILE_UPSTREAM=3000
+TSS_PROFILE_DOWNSTREAM=3000
+RUN_LIBRARY_COMPLEXITY=true
+RUN_CROSS_CORRELATION=true
+PHANTOMPEAK_COMMAND=run_spp.R
+RUN_REPLICATE_CORRELATION=true
+RUN_PRESEQ=true
+
+# Reusable metagene / aggregate-signal plots. References are prepared separately
+# with common/metagene/prepare_metagene_reference.py and listed in a TSV manifest.
+RUN_METAGENE=false
+METAGENE_GENE_SET_MANIFEST=
+METAGENE_GENE_SETS=protein_coding,broadly_expressed
+METAGENE_MODES=tss,tes,gene_body
+METAGENE_TRACK_FAMILY=auto
+METAGENE_ALLOW_CPM_FALLBACK=false
+METAGENE_INCLUDE_CONTROLS=false
+METAGENE_REFERENCE_UPSTREAM_BP=3000
+METAGENE_REFERENCE_DOWNSTREAM_BP=3000
+METAGENE_BODY_UPSTREAM_BP=3000
+METAGENE_BODY_DOWNSTREAM_BP=3000
+METAGENE_BODY_LENGTH_BP=5000
+METAGENE_BIN_SIZE_BP=10
+METAGENE_MISSING_DATA_POLICY=zero
+METAGENE_SKIP_ZERO_REGIONS=false
+METAGENE_COLOR_MAP=viridis
+METAGENE_ZMIN=auto
+METAGENE_ZMAX=auto
+METAGENE_DPI=200
+METAGENE_PLOT_FORMATS=png,pdf
+METAGENE_THREADS_COMPUTEMATRIX=4
+METAGENE_PARALLEL_JOBS=2
+
+# Differential enrichment
+RUN_DIFFBIND=true
+RUN_DESEQ2_ENRICHMENT=true
+DIFFERENTIAL_MIN_REPLICATES_PER_CONDITION=2
+DIFFERENTIAL_ALPHA=0.05
+DIFFERENTIAL_MIN_ABS_LOG2FC=0
+DIFFERENTIAL_BLOCK_COLUMNS=
+DIFFERENTIAL_REFERENCE_CONDITION=
+DIFFERENTIAL_CONDITION_ORDER=
+DIFFERENTIAL_NORMALIZATION=deseq2
+RUN_CONTROL_SUBTRACTED_SENSITIVITY=true
+RUN_TARGET_CONTROL_INTERACTION=false
+
+# Annotation
+RUN_SIMPLE_PEAK_ANNOTATION=true
+RUN_CCRE_ANNOTATION=true
+RUN_MOTIF_ENRICHMENT=false
+
+# Bounded resources
+# auto uses the CPUs visible to the process. A numeric value provides a simple
+# per-stage CPU ceiling check; it does not introduce a scheduler.
+TOTAL_CPU_BUDGET=auto
+RESOURCE_CHECK_MODE=warn
+THREADS_PARALLEL_JOBS=8
+QC_SAMPLE_PARALLEL_JOBS=4
+TRACK_PARALLEL_JOBS=2
+PEAKCALL_PARALLEL_JOBS=2
+SPIKEIN_PARALLEL_JOBS=2
+
+# Recovery and cleanup
+ENABLE_AUTOMATIC_CLEANUP=false
+KEEP_TRIMMED_FASTQ=false
+KEEP_RAW_ALIGNMENT_BAMS=false
+KEEP_MARKED_BAMS=true
+KEEP_FILTERED_BAMS=true
+KEEP_SPIKEIN_BAMS=false
+
+# Browser and provenance
+UCSC_BIGDATA_URL_BASE=
+UCSC_TRACK_PREFIX=CUT
+WRITE_IGV_SESSION=true
+WRITE_COMMAND_LOG=true
+WRITE_FILE_CHECKSUMS=true

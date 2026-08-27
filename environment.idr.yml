@@ -1,0 +1,8 @@
+name: chip2tracks-idr-2.0.4.2
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - python =3.9
+  - idr =2.0.4.2

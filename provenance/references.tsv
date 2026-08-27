@@ -1,0 +1,12 @@
+component	version_or_release	source
+ATACseq2tracks consensus	3.2.0	https://github.com/MichalGd/ATACseq2tracks#consensus-peaks
+Bowtie2	2.5.5	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml
+MACS3	3.0.4	https://macs3-project.github.io/MACS/docs/callpeak.html
+Trim Galore	server-audit	https://github.com/FelixKrueger/TrimGalore
+epic2	server-audit	https://github.com/biocore-ntnu/epic2
+IDR	server-audit	https://github.com/nboley/idr
+phantompeakqualtools	server-audit	https://github.com/kundajelab/phantompeakqualtools
+deepTools	3.5.6	https://deeptools.readthedocs.io/en/develop/content/tools/bamCoverage.html
+ENCODE ChIP-seq pipeline	guidelines	https://www.encodeproject.org/chip-seq/transcription_factor/
+DESeq2	1.52.0	https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
+DiffBind	3.22.2	https://bioconductor.org/packages/release/bioc/html/DiffBind.html

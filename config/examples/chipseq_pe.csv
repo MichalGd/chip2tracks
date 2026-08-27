@@ -1,0 +1,5 @@
+sample_id,fastq_1,fastq_2,layout,genome,assay_profile,factor,antibody_id,target_class,condition,treatment,cell_type,replicate,tech_replicate,is_control,control_type,control_id,analysis_duplicate_policy,blacklist,spikein_to_host_ratio,spikein_stage,spikein_lot,batch,donor,output_prefix
+WT_CTCF,/data/WT_CTCF_R1_1.fastq.gz,/data/WT_CTCF_R1_2.fastq.gz,PE,hg38,chipseq,CTCF,AB_CTCF_01,narrow,WT,none,NHEK,1,1,FALSE,none,WT_Input,remove,/refs/hg38/hg38.blacklist.bed,,,,B1,D1,WT_CTCF_R1
+WT_Input,/data/WT_Input_R1_1.fastq.gz,/data/WT_Input_R1_2.fastq.gz,PE,hg38,chipseq,Input,INPUT,control,WT,none,NHEK,1,1,TRUE,input,,remove,/refs/hg38/hg38.blacklist.bed,,,,B1,D1,WT_Input_R1
+WT_CTCF,/data/WT_CTCF_R2_1.fastq.gz,/data/WT_CTCF_R2_2.fastq.gz,PE,hg38,chipseq,CTCF,AB_CTCF_01,narrow,WT,none,NHEK,2,1,FALSE,none,WT_Input,remove,/refs/hg38/hg38.blacklist.bed,,,,B1,D2,WT_CTCF_R2
+WT_Input,/data/WT_Input_R2_1.fastq.gz,/data/WT_Input_R2_2.fastq.gz,PE,hg38,chipseq,Input,INPUT,control,WT,none,NHEK,2,1,TRUE,input,,remove,/refs/hg38/hg38.blacklist.bed,,,,B1,D2,WT_Input_R2

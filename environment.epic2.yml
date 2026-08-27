@@ -1,0 +1,8 @@
+name: chip2tracks-epic2-0.0.54
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - python =3.10
+  - epic2 =0.0.54

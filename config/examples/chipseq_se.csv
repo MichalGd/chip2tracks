@@ -1,0 +1,2 @@
+sample_id,fastq_1,fastq_2,layout,genome,assay_profile,factor,antibody_id,target_class,condition,treatment,cell_type,replicate,tech_replicate,is_control,control_type,control_id,analysis_duplicate_policy,blacklist,spikein_to_host_ratio,spikein_stage,spikein_lot,batch,donor,output_prefix
+WT_H3K27me3,/data/WT_H3K27me3.fastq.gz,,SE,hg38,chipseq,H3K27me3,AB_H3K27ME3_01,broad,WT,none,NHEK,1,1,FALSE,none,,remove,/refs/hg38/hg38.blacklist.bed,,,,B1,D1,WT_H3K27me3

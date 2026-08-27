@@ -1,0 +1,2 @@
+sample_id,fastq_1,fastq_2,layout,genome,assay_profile,factor,antibody_id,target_class,condition,treatment,cell_type,replicate,tech_replicate,is_control,control_type,control_id,analysis_duplicate_policy,blacklist,spikein_to_host_ratio,spikein_stage,spikein_lot,batch,donor,output_prefix
+WT_CTCF,/data/WT_CTCF_R1.fastq.gz,/data/WT_CTCF_R2.fastq.gz,PE,hg38,chipseq,CTCF,AB_CTCF_01,narrow,WT,none,NHEK,1,1,FALSE,none,,remove,/refs/hg38/hg38.blacklist.bed,0.05,cells,DMEL-2026-01,B1,D1,WT_CTCF
