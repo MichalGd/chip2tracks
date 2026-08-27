@@ -70,6 +70,8 @@ def write_custom_table(
 def stage_images(root: Path, destination: Path) -> list[tuple[str, str]]:
     patterns = (
         "06_qc/controls/*.target_control_fingerprint.png",
+        "06_qc/correlation_pca_fingerprint/*/spearman_heatmap.png",
+        "06_qc/correlation_pca_fingerprint/*/pca.png",
         "06_qc/tss_signal_profile/*.descriptive_TSS_profile.png",
         "08_differential/**/pca.png",
         "08_differential/**/dispersion.png",
@@ -147,6 +149,9 @@ def main() -> int:
             ("frip", "Fraction of signal in consensus peaks", "Descriptive FRiP against each target cohort's consensus set.",
              aggregate("06_qc/frip_and_peak_reproducibility/*.frip.tsv", root),
              ["signal_unit", "total", "in_consensus", "frip"], ("sample_key",)),
+            ("correlation", "Cohort replicate correlation", "Spearman/PCA availability calculated independently within each factor and antibody cohort.",
+             read_tsv(root / "06_qc/correlation_pca_fingerprint/status.tsv"),
+             ["factor", "antibody_id", "samples", "status", "reason"], ("cohort_id",)),
             ("spikein", "Spike-in calibration", "Host/spike observations, scale factors, and calibration status.",
              read_tsv(root / "06_qc/spikein/spikein_scaling.tsv"), None, ("sample_key",)),
             ("comparisons", "Differential occupancy summary", "All primary and sensitivity analysis variants, including disabled, skipped, failed, and completed comparisons.",

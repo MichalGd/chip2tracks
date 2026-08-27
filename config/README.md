@@ -39,9 +39,10 @@ class, condition, treatment, cell type, biological/technical replicate,
 control type/linkage, duplicate policy, blacklist, spike-in ratio/stage/lot,
 batch, donor and a safe unique output prefix.
 
-One samplesheet is one compatible target/antibody and peak universe. Put
-different factors, antibodies, layouts, target classes, or analysis policies in
-separate runs. Conditions and replicates remain together for consensus and
+One samplesheet may contain multiple factors or antibodies. Compatible target
+rows are assigned to independent cohort/peak universes according to factor,
+antibody, layout, target class, analysis policy, and primary caller. Conditions
+and replicates remain together within each cohort for consensus and optional
 differential analysis.
 
 The template enables bigWig and uncompressed bedGraph output for the analysis,

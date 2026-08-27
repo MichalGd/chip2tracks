@@ -12,9 +12,10 @@ first requires the same replicate. A condition=`shared` control is eligible
 only when `ALLOW_SHARED_CONTROLS=true` and all other biological context matches.
 There is no replicate-1 fallback.
 
-One samplesheet defines one compatible target/antibody and peak universe.
-Different factors, antibodies, layouts, target classes, or analysis policies
-must use separate runs; biological conditions and replicates remain together.
+One samplesheet may define multiple target/antibody peak universes. Different
+factors, antibodies, layouts, target classes, or analysis policies are assigned
+distinct cohort IDs and are processed independently inside the run. Biological
+conditions and replicates remain together within their compatible cohort.
 See [Replicates, controls, and experimental design](13_replicates_and_design.md)
 for the merge, shared-control, consensus, block, and contrast rules.
 

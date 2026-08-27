@@ -32,19 +32,20 @@ Do not merge biological BAMs before statistical analysis. A pooled browser
 track can be useful for presentation, but v0.1 does not create pooled-condition
 tracks and such a file must not be presented as an independent replicate.
 
-## One samplesheet, one target universe
+## Multiple isolated target universes in one samplesheet
 
-Version 0.1 permits one compatible target/antibody and peak universe per
-samplesheet. Target rows must agree on genome, assay profile, factor, antibody,
-layout, target class, analysis duplicate policy, primary caller, and primary
-peak class. Spike mode/reference/stage/lot also participate in the cohort
-identity when calibration is enabled.
+Each compatible target/antibody peak universe becomes an independent cohort.
+Target rows are grouped by genome, assay profile, factor, antibody, layout,
+target class, analysis duplicate policy, primary caller, and primary peak
+class. Spike mode/reference/stage/lot also participate in cohort identity when
+calibration is enabled.
 
 Conditions, treatments, donors, batches, and biological replicates belong
-together when they form one valid comparison. Use separate runs for different
-antibodies, factors, narrow/broad target policies, layouts, or genomes. This
-prevents unrelated regions from being combined into one consensus and count
-matrix.
+together when they form one valid comparison. Multiple factors or antibodies
+may share a samplesheet and compatible controls, but they receive separate
+consensus sets, count matrices, normalization factors, replicate-correlation
+outputs, annotations, and differential analyses. Unrelated regions are never
+combined across cohorts.
 
 ## Matched and shared controls
 

@@ -22,7 +22,7 @@ broad. The final decision must consider the metrics together.
 | Is ChIP enrichment detectable? | NSC/RSC cross-correlation | q30 duplicate-retained tagAlign | `06_qc/fragment_length_and_periodicity/*.phantompeak.tsv` |
 | Is signal concentrated in reproducible peaks? | FRiP against cohort consensus | target analysis BAM | `06_qc/frip_and_peak_reproducibility/*.frip.tsv` |
 | Does target separate from background? | target/control fingerprint | matched analysis BAMs | `06_qc/controls/` |
-| Do biological replicates agree? | genome-bin Spearman heatmap and PCA | all target analysis BAMs | `06_qc/correlation_pca_fingerprint/` |
+| Do biological replicates agree? | genome-bin Spearman heatmap and PCA | target analysis BAMs within each factor/antibody cohort | `06_qc/correlation_pca_fingerprint/<cohort>/` |
 | Is there aggregate TSS-proximal signal? | descriptive TSS profile | analysis CPM bigWig | `06_qc/tss_signal_profile/` |
 | Is fly calibration credible? | host/fly observations, fractions, scale factors, warnings | competitive-alignment branches | `06_qc/spikein/` |
 
