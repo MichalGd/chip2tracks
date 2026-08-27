@@ -18,15 +18,12 @@ class InterfaceTests(unittest.TestCase):
         preprocess = (ROOT / "scripts/preprocess_batch.sh").read_text(encoding="utf-8")
         peakcall = (ROOT / "scripts/peakcall_batch.sh").read_text(encoding="utf-8")
         reproducibility = (ROOT / "scripts/reproducibility_batch.sh").read_text(encoding="utf-8")
-        qc = (ROOT / "scripts/qc_batch.sh").read_text(encoding="utf-8")
         self.assertIn('ADAPTER_PRESET', preprocess)
         self.assertIn('adapter_detection.tsv', preprocess)
         self.assertIn('call_epic2', peakcall)
         self.assertIn('IDR_MACS3_PVALUE', peakcall)
         self.assertIn('.macs3.idr_peaks.narrowPeak', reproducibility)
         self.assertNotIn('SEACR_COMMAND', peakcall)
-        self.assertIn('done < "$COHORT_MANIFEST"', qc)
-        self.assertIn('cohort_root="$correlation_root/$cohort_id"', qc)
 
     def test_phantompeak_command_owns_its_r_runtime(self) -> None:
         qc = (ROOT / "scripts/qc_batch.sh").read_text(encoding="utf-8")
@@ -211,7 +208,7 @@ class InterfaceTests(unittest.TestCase):
             self.assertEqual(row["control_key"], ".")
             self.assertEqual(row["primary_peak_caller"], "epic2")
 
-    def test_different_antibodies_create_independent_cohorts(self) -> None:
+    def test_different_antibodies_require_separate_runs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary); source = ROOT / "config/examples/chipseq_pe.csv"
             with source.open(encoding="utf-8", newline="") as handle:
@@ -235,15 +232,8 @@ class InterfaceTests(unittest.TestCase):
                 "--assay-profile", "chipseq", "--spikein-mode", "none", "--spikein-reference-id", "", "--peak-callers", "macs3,epic2",
                 "--primary-peak-caller", "auto", "--allow-shared-controls", "--output-dir", str(out)],
                 text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            with (out / "cohort_manifest.tsv").open(encoding="utf-8", newline="") as handle:
-                cohorts = list(csv.DictReader(handle, delimiter="\t"))
-            self.assertEqual({row["factor"] for row in cohorts}, {"CTCF", "H3K27ac"})
-            self.assertEqual(len(cohorts), 2)
-            with (out / "sample_manifest.tsv").open(encoding="utf-8", newline="") as handle:
-                targets = [row for row in csv.DictReader(handle, delimiter="\t")
-                           if row["is_control"] == "FALSE"]
-            self.assertEqual(len({row["cohort_id"] for row in targets}), 2)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("one compatible target/peak universe", result.stderr)
 
 
 if __name__ == "__main__":

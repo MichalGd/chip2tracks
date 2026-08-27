@@ -13,10 +13,9 @@ local ChIP-seq and ChIPmentation datasets.
 
 - `ASSAY_PROFILE=chipseq` or `ASSAY_PROFILE=chipmentation`; profiles cannot be
   mixed within one run.
-- One samplesheet may contain multiple factors and antibodies. Each compatible
-  factor/antibody/layout/target-class combination becomes an independent cohort
-  with separate consensus, normalization, correlation, annotation, and
-  differential outputs; unrelated targets are never combined.
+- One samplesheet defines one compatible target/antibody and narrow-or-broad
+  peak universe. Conditions, biological replicates, technical replicates, and
+  compatible shared controls may coexist; different targets use separate runs.
 - PE and SE libraries are supported. MACS3 uses real fragments with `BAMPE` for
   PE and its fragment model for SE unless a fixed extension is explicitly set.
   Coverage uses PE fragments; SE coverage defaults to a MACS3 `predictd`

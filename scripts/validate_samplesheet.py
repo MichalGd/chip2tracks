@@ -327,6 +327,17 @@ def main() -> int:
             print(f"SAMPLESHEET ERROR: {error}", file=sys.stderr)
         return 1
 
+    target_universes = {
+        str(row["cohort_key"]) for row in biological_rows if row["is_control"] == "FALSE"
+    }
+    if len(target_universes) > 1:
+        print(
+            "SAMPLESHEET ERROR: v0.1 permits one compatible target/peak universe per samplesheet; "
+            "use separate runs for different factors, antibodies, layouts, target classes, or analysis policies",
+            file=sys.stderr,
+        )
+        return 1
+
     manifest_fields = [
         "sample_key", "sample_id", "replicate", "layout", "genome", "assay_profile",
         "factor", "antibody_id", "target_class", "condition", "treatment", "cell_type",

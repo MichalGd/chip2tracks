@@ -14,6 +14,8 @@ summary="$qc_root/alignment_and_complexity/observation_counts.tsv"
 printf 'sample_key\tlayout\tsignal_unit\tanalysis_observations\n' > "$summary"
 complexity_summary="$qc_root/alignment_and_complexity/library_complexity.tsv"
 printf 'sample_key\tlayout\ttotal_observations\tdistinct_observations\tonce\ttwice\tNRF\tPBC1\tPBC2\n' > "$complexity_summary"
+target_bams=()
+target_labels=()
 
 library_complexity() {
     local bam="$1" layout="$2" key="$3" tmp total distinct once twice nrf pbc1 pbc2
@@ -77,6 +79,8 @@ while IFS=$'\t' read -r \
         fi
     fi
     if [[ "$is_control" == "FALSE" ]]; then
+        target_bams+=("$bam")
+        target_labels+=("$sample_key")
         consensus_dir="${OUTPUT_DIR}/05_peaks/consensus/${cohort_id}/${primary_caller}/${primary_class}"
         consensus="$(find "$consensus_dir" -maxdepth 1 -type f -name '*.consensus.bed' -print -quit 2>/dev/null || true)"
         if [[ -n "$consensus" ]]; then
@@ -110,41 +114,17 @@ while IFS=$'\t' read -r \
     fi
 done < "$SAMPLE_MANIFEST"
 
-correlation_root="$qc_root/correlation_pca_fingerprint"
-correlation_status="$correlation_root/status.tsv"
-printf 'cohort_id\tfactor\tantibody_id\tsamples\tstatus\treason\n' > "$correlation_status"
-while IFS=$'\t' read -r cohort_id cohort_key genome assay factor antibody layout target_class duplicate_policy \
-        primary_caller primary_class biological_samples sample_keys conditions; do
-    [[ "$cohort_id" == "cohort_id" ]] && continue
-    if ! is_true "$RUN_REPLICATE_CORRELATION"; then
-        printf '%s\t%s\t%s\t%s\tSKIPPED\tRUN_REPLICATE_CORRELATION=false\n' \
-            "$cohort_id" "$factor" "$antibody" "$biological_samples" >> "$correlation_status"
-        continue
-    fi
-    IFS=',' read -r -a cohort_samples <<< "$sample_keys"
-    if (( ${#cohort_samples[@]} < 2 )); then
-        printf '%s\t%s\t%s\t%s\tSKIPPED\tfewer_than_two_target_libraries\n' \
-            "$cohort_id" "$factor" "$antibody" "$biological_samples" >> "$correlation_status"
-        continue
-    fi
-    cohort_bams=()
-    for sample_key in "${cohort_samples[@]}"; do
-        cohort_bams+=("$(analysis_bam_path "$sample_key")")
-    done
-    cohort_root="$correlation_root/$cohort_id"
-    mkdir -p "$cohort_root"
-    matrix="$cohort_root/target_bins.npz"
-    raw="$cohort_root/target_bins.tsv"
-    multiBamSummary bins --bamfiles "${cohort_bams[@]}" --labels "${cohort_samples[@]}" \
+if is_true "$RUN_REPLICATE_CORRELATION" && (( ${#target_bams[@]} >= 2 )); then
+    matrix="$qc_root/correlation_pca_fingerprint/target_bins.npz"
+    raw="$qc_root/correlation_pca_fingerprint/target_bins.tsv"
+    multiBamSummary bins --bamfiles "${target_bams[@]}" --labels "${target_labels[@]}" \
         --numberOfProcessors "$THREADS_BAMCOVERAGE" --outFileName "$matrix" --outRawCounts "$raw"
     plotCorrelation --corData "$matrix" --corMethod spearman --whatToPlot heatmap \
-        --skipZeros --plotFile "$cohort_root/spearman_heatmap.png" \
-        --outFileCorMatrix "$cohort_root/spearman_matrix.tsv"
-    plotPCA --corData "$matrix" --plotFile "$cohort_root/pca.png" \
-        --outFileNameData "$cohort_root/pca.tsv"
-    printf '%s\t%s\t%s\t%s\tSUCCESS\t.\n' \
-        "$cohort_id" "$factor" "$antibody" "$biological_samples" >> "$correlation_status"
-done < "$COHORT_MANIFEST"
+        --skipZeros --plotFile "$qc_root/correlation_pca_fingerprint/spearman_heatmap.png" \
+        --outFileCorMatrix "$qc_root/correlation_pca_fingerprint/spearman_matrix.tsv"
+    plotPCA --corData "$matrix" --plotFile "$qc_root/correlation_pca_fingerprint/pca.png" \
+        --outFileNameData "$qc_root/correlation_pca_fingerprint/pca.tsv"
+fi
 
 if is_true "$RUN_TSS_SIGNAL_PROFILE"; then
     while IFS=$'\t' read -r sample_key sample_id replicate layout genome rest; do

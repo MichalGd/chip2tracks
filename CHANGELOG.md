@@ -2,11 +2,6 @@
 
 ## Unreleased
 
-- Allowed one samplesheet/configuration to contain multiple factors or
-  antibodies while keeping peak calls, consensus sets, normalization, FRiP,
-  annotation, and optional differential analysis isolated by cohort. Replicate
-  Spearman/PCA QC is now cohort-scoped rather than pooled across unrelated
-  targets, and its status/images are included in MultiQC.
 - Corrected Git executable modes for the workflow entrypoint and all tracked
   shell utilities/tests, and made CI reject non-executable shell archives. This
   ensures `git archive` produces a directly runnable shared release.
@@ -63,7 +58,7 @@
   added MACS3-estimated SE coverage extension with a recorded fallback, and
   made spike-in optional/off in the public template.
 - Added real spike-in parallel execution, lightweight CPU-budget preflight,
-  target-cohort isolation validation, dead-option removal, and
+  one-universe-per-samplesheet validation, dead-option removal, and
   cleanup-aware checkpoint invalidation.
 
 The entries below are inherited `cutnrun2tracks` history and are preserved for
