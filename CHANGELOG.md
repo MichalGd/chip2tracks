@@ -12,6 +12,9 @@
   produce distinct counts when duplicates are present.
 - Corrected the public browser-track prefix default from inherited `CUT` to
   `CHIP`.
+- Made the shared launcher resolve `current` to an immutable release at process
+  start, preventing a later atomic promotion from changing code underneath an
+  active run.
 - Isolated phantompeakqualtools/SPP and preseq from the modern main environment
   and allowed the configured cross-correlation command to select its own R
   runtime, matching the validated all-user server deployment.

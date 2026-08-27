@@ -4,6 +4,15 @@ set -euo pipefail
 WORKFLOW_ROOT="${CHIP2TRACKS_ROOT:-/opt/bioinformatics/workflows/chip2tracks/current}"
 MAIN_ENV="${CHIP2TRACKS_MAIN_ENV:-/opt/miniconda/envs/chip2tracks-0.1.0}"
 
+# Resolve the deployment symlink once so a run remains pinned to the immutable
+# release from which it started, even if `current` is promoted later.
+RESOLVED_WORKFLOW_ROOT="$(readlink -f -- "$WORKFLOW_ROOT" 2>/dev/null || true)"
+[[ -n "$RESOLVED_WORKFLOW_ROOT" ]] || {
+    echo "ERROR: chip2tracks release cannot be resolved: $WORKFLOW_ROOT" >&2
+    exit 127
+}
+WORKFLOW_ROOT="$RESOLVED_WORKFLOW_ROOT"
+
 [[ -x "$WORKFLOW_ROOT/chip2tracks.sh" ]] || {
     echo "ERROR: chip2tracks release is not executable: $WORKFLOW_ROOT/chip2tracks.sh" >&2
     exit 127
