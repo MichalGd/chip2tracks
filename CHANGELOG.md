@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Isolated phantompeakqualtools/SPP and preseq from the modern main environment
+  and allowed the configured cross-correlation command to select its own R
+  runtime, matching the validated all-user server deployment.
 - Expanded the task-oriented documentation with dedicated guides for reference
   reuse, blacklist and alignment filtering, ChIP-specific QC, genomic coverage
   normalization, biological/technical replicates, controls and design,

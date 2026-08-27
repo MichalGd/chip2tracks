@@ -25,6 +25,22 @@ class InterfaceTests(unittest.TestCase):
         self.assertIn('.macs3.idr_peaks.narrowPeak', reproducibility)
         self.assertNotIn('SEACR_COMMAND', peakcall)
 
+    def test_phantompeak_command_owns_its_r_runtime(self) -> None:
+        qc = (ROOT / "scripts/qc_batch.sh").read_text(encoding="utf-8")
+        self.assertIn('"$phantompeak_path" -c="$tagalign"', qc)
+        self.assertNotIn('Rscript "$phantompeak_path"', qc)
+
+        main_environment = (ROOT / "environment.yml").read_text(encoding="utf-8")
+        self.assertNotIn("  - phantompeakqualtools", main_environment)
+        self.assertNotIn("  - preseq", main_environment)
+        self.assertTrue((ROOT / "environment.spp.yml").is_file())
+        self.assertTrue((ROOT / "environment.preseq.yml").is_file())
+
+        sidecar = (ROOT / "utilities/run_phantompeak_sidecar.sh").read_text(encoding="utf-8")
+        launcher = (ROOT / "utilities/chip2tracks_shared_launcher.sh").read_text(encoding="utf-8")
+        self.assertIn('exec "$RSCRIPT" "$RUN_SPP" "$@"', sidecar)
+        self.assertIn('exec "$MAIN_ENV/bin/bash" "$WORKFLOW_ROOT/chip2tracks.sh" "$@"', launcher)
+
     def test_final_report_runs_unified_multiqc_and_validates_outputs(self) -> None:
         report = (ROOT / "scripts/report_batch.sh").read_text(encoding="utf-8")
         unified = (ROOT / "scripts/generate_multiqc_report.sh").read_text(encoding="utf-8")

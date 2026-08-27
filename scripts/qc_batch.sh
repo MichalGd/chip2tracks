@@ -71,7 +71,7 @@ while IFS=$'\t' read -r \
             tagalign="$qc_root/fragment_length_and_periodicity/${sample_key}.q30_dup-retained.tagAlign.gz"
             bedtools bamtobed -i "$retained_bam" | \
                 awk 'BEGIN{OFS="\t"}{print $1,$2,$3,"N",1000,$6}' | gzip -c > "$tagalign"
-            Rscript "$phantompeak_path" -c="$tagalign" \
+            "$phantompeak_path" -c="$tagalign" \
                 -savp="$qc_root/fragment_length_and_periodicity/${sample_key}.cross_correlation.pdf" \
                 -out="$qc_root/fragment_length_and_periodicity/${sample_key}.phantompeak.tsv" \
                 >"${OUTPUT_DIR}/logs/qc/${sample_key}.phantompeak.log" 2>&1 || warn "cross-correlation failed for $sample_key"

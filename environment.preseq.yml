@@ -1,0 +1,8 @@
+name: chip2tracks-preseq-3.2.0
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  # preseq 3.2.0 currently requires an older zlib ABI than the main environment.
+  - preseq =3.2.0

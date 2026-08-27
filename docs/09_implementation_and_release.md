@@ -84,8 +84,8 @@ produce warnings rather than false success.
 ### Phase 5 — server pilot and dependency lock
 
 Files: `utilities/audit_server_environment.sh`, `environment.yml`,
-`environment.lock.yml`, `environment.epic2.yml`, `environment.idr.yml`,
-`docs/08_server_audit.md`.
+`environment.lock.yml`, `environment.epic2.yml`, `environment.spp.yml`,
+`environment.preseq.yml`, `environment.idr.yml`, `docs/08_server_audit.md`.
 
 Acceptance: the audit is reviewed; reused executable versions and reference
 paths are recorded; a Linux-specific explicit lock is resolved; no server-wide

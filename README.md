@@ -65,8 +65,17 @@ bash chip2tracks.sh --config "$PWD/config.conf" --samplesheet "$PWD/samplesheet.
 Reuse the server's installed tools first. Run the supplied read-only audit if
 preflight reports missing software; create `environment.yml` only when the
 server cannot provide a compatible main environment. `environment.epic2.yml`
-and optional `environment.idr.yml` are fallback sidecars, not required runtime
-configuration files.
+is the broad-peak sidecar, while `environment.spp.yml` and
+`environment.preseq.yml` isolate legacy QC dependencies from the modern main
+environment. Optional IDR uses `environment.idr.yml`. These are installation
+manifests, not additional per-analysis configuration files.
+
+For a shared `/opt` deployment, install
+`utilities/chip2tracks_shared_launcher.sh` as `/usr/local/bin/chip2tracks` and
+`utilities/run_phantompeak_sidecar.sh` as `/usr/local/bin/run_spp.R`. The
+launcher uses versioned system paths without activating Conda or modifying a
+user's shell. Existing shared `epic2` and `preseq` executables can likewise be
+exposed through `/usr/local/bin`.
 
 Use `config/examples/chipmentation_pe.csv` for the second assay profile. Spike-in
 is disabled by default. To enable the laboratory dm6 protocol, set

@@ -1,0 +1,10 @@
+name: chip2tracks-spp-1.2.2
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # Keep phantompeakqualtools isolated from the modern main R environment.
+  # Version 1.15.5 is the SPP release used by the ENCODE installation recipe.
+  - phantompeakqualtools =1.2.2
+  - r-spp =1.15.5
