@@ -31,12 +31,31 @@ optional_reference_value() {
     printf '%s' "${!key:-}"
 }
 
+signal_exclude_mask() {
+    local layout="${1:?layout}" duplicate_policy="${2:?duplicate policy}"
+    case "$duplicate_policy" in
+        retain|retained) duplicate_policy=retain ;;
+        remove|removed) duplicate_policy=remove ;;
+        *) die "unsupported duplicate policy for signal counting: $duplicate_policy" ;;
+    esac
+    case "$layout:$duplicate_policy" in
+        PE:retain) printf '2828' ;;
+        PE:remove) printf '3852' ;;
+        SE:retain) printf '2820' ;;
+        SE:remove) printf '3844' ;;
+        *) die "unsupported layout for signal counting: $layout" ;;
+    esac
+}
+
 signal_count() {
-    local bam="${1:?bam}" layout="${2:?layout}"
+    local bam="${1:?bam}" layout="${2:?layout}" duplicate_policy="${3:?duplicate policy}"
+    local exclude
+    exclude="$(signal_exclude_mask "$layout" "$duplicate_policy")"
     if [[ "$layout" == "PE" ]]; then
-        samtools view -c -f 66 -F 3840 "$bam"
+        # Count one properly paired, primary representative read per fragment.
+        samtools view -c -f 66 -F "$exclude" "$bam"
     else
-        samtools view -c -F 3844 "$bam"
+        samtools view -c -F "$exclude" "$bam"
     fi
 }
 

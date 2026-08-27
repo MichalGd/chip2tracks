@@ -46,7 +46,7 @@ while IFS=$'\t' read -r \
     technical_units fastq_1_list fastq_2_list cohort_id cohort_key primary_caller primary_class; do
     [[ "$sample_key" == "sample_key" ]] && continue
     bam="$(analysis_bam_path "$sample_key")"
-    count="$(signal_count "$bam" "$layout")"
+    count="$(signal_count "$bam" "$layout" "$duplicate_policy")"
     unit="$([[ "$layout" == "PE" ]] && echo fragment || echo read)"
     printf '%s\t%s\t%s\t%s\n' "$sample_key" "$layout" "$unit" "$count" >> "$summary"
     samtools flagstat -@ "$THREADS_SAMTOOLS" "$bam" > "$qc_root/alignment_and_complexity/${sample_key}.flagstat.txt"
@@ -57,7 +57,8 @@ while IFS=$'\t' read -r \
         library_complexity "$retained_bam" "$layout" "$sample_key"
     fi
     if [[ "$layout" == "PE" ]] && is_true "$RUN_FRAGMENT_QC"; then
-        samtools view -f 66 -F 3840 "$bam" |
+        fragment_exclude="$(signal_exclude_mask "$layout" "$duplicate_policy")"
+        samtools view -f 66 -F "$fragment_exclude" "$bam" |
             awk -v maximum="$FRAGMENT_PLOT_MAX_BP" 'BEGIN{OFS="\t"} {t=$9; if(t<0)t=-t; if(t>0 && t<=maximum)n[t]++} END{print "fragment_length","count"; for(i=1;i<=maximum;i++)print i,n[i]+0}' \
             > "$qc_root/fragment_length_and_periodicity/${sample_key}.fragment_lengths.tsv"
     fi

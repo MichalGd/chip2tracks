@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Fixed duplicate-policy-aware signal counting across filtering metrics, CPM
+  scale factors, coverage mapping-composition summaries, QC/FRiP denominators,
+  paired-end fragment QC, and spike-in host/control ratios. Duplicate-retained
+  branches now include duplicate-flagged observations, while duplicate-removed
+  branches continue to exclude them.
+- Added paired-end and single-end regression coverage for signal-count masks and
+  strengthened filtering/coverage tests so retained and removed branches must
+  produce distinct counts when duplicates are present.
+- Corrected the public browser-track prefix default from inherited `CUT` to
+  `CHIP`.
 - Isolated phantompeakqualtools/SPP and preseq from the modern main environment
   and allowed the configured cross-correlation command to select its own R
   runtime, matching the validated all-user server deployment.

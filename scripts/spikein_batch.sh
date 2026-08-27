@@ -20,7 +20,7 @@ if [[ "$SPIKEIN_MODE" == "none" ]]; then
 fi
 
 process_spike_bam() {
-    local sample_key="$1" layout="$2" cohort_id="$3" spike_stage="$4" spike_lot="$5" ratio="$6"
+    local sample_key="$1" layout="$2" host_duplicate_policy="$3" cohort_id="$4" spike_stage="$5" spike_lot="$6" ratio="$7"
     local raw marked prefiltered filtered metrics mask host_count spike_count
     raw="${OUTPUT_DIR}/03_alignment/spikein/spike/${sample_key}.${SPIKEIN_MODE}.bam"
     marked="${OUTPUT_DIR}/03_alignment/spikein/filtered/${sample_key}.${SPIKEIN_MODE}.marked.bam"
@@ -45,8 +45,8 @@ process_spike_bam() {
     fi
     samtools quickcheck "$filtered"
     samtools index -@ "$THREADS_SAMTOOLS" "$filtered"
-    host_count="$(signal_count "$(analysis_bam_path "$sample_key")" "$layout")"
-    spike_count="$(signal_count "$filtered" "$layout")"
+    host_count="$(signal_count "$(analysis_bam_path "$sample_key")" "$layout" "$host_duplicate_policy")"
+    spike_count="$(signal_count "$filtered" "$layout" "$SPIKEIN_DUPLICATE_POLICY")"
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$sample_key" "$layout" "$cohort_id" \
         "$spike_stage" "$spike_lot" "$ratio" "$host_count" "$spike_count" \
         > "${count_parts}/${sample_key}.tsv"
@@ -58,7 +58,7 @@ while IFS=$'\t' read -r \
     is_control control_type control_id control_key duplicate_policy blacklist ratio spike_stage spike_lot batch donor output_prefix \
     technical_units fastq_1_list fastq_2_list cohort_id cohort_key primary_caller primary_class; do
     [[ "$sample_key" == "sample_key" ]] && continue
-    parallel_pool_submit "$sample_key" process_spike_bam "$sample_key" "$layout" "$cohort_id" \
+    parallel_pool_submit "$sample_key" process_spike_bam "$sample_key" "$layout" "$duplicate_policy" "$cohort_id" \
         "$spike_stage" "$spike_lot" "$ratio"
 done < "$SAMPLE_MANIFEST"
 parallel_pool_wait_all

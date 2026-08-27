@@ -19,12 +19,18 @@ done
 
 cat > "$TMP/bin/samtools" <<'EOF'
 #!/usr/bin/env bash
-if [[ "$*" == *q0.dup-retained.bam* ]]; then count=200; mapq0=20; low=40; xs=30
-elif [[ "$*" == *q0.dup-removed.bam* ]]; then count=160; mapq0=16; low=32; xs=24
-elif [[ "$*" == *q30.dup-removed.bam* ]]; then count=100; mapq0=0; low=0; xs=5
+arguments="$*"
+exclude=""
+while (( $# )); do
+    if [[ "$1" == "-F" ]]; then exclude="$2"; shift 2; else shift; fi
+done
+if [[ "$arguments" == *q0.dup-retained.bam* && "$exclude" == "2828" ]]; then count=200; mapq0=20; low=40; xs=30
+elif [[ "$arguments" == *q0.dup-retained.bam* ]]; then count=160; mapq0=16; low=32; xs=24
+elif [[ "$arguments" == *q0.dup-removed.bam* ]]; then count=160; mapq0=16; low=32; xs=24
+elif [[ "$arguments" == *q30.dup-removed.bam* ]]; then count=100; mapq0=0; low=0; xs=5
 else count=100; mapq0=0; low=0; xs=5
 fi
-if [[ " $* " == *" -c "* ]]; then echo "$count"; exit 0; fi
+if [[ " $arguments " == *" -c "* ]]; then echo "$count"; exit 0; fi
 for ((i=1; i<=count; i++)); do
     if (( i <= mapq0 )); then mapq=0; elif (( i <= low )); then mapq=10; else mapq=30; fi
     if (( i <= xs )); then tag=$'\tXS:i:20'; else tag=''; fi

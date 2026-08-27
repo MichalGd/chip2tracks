@@ -65,9 +65,10 @@ policy_description() {
 }
 
 mapping_composition() {
-    local bam="$1" layout="$2"
+    local bam="$1" layout="$2" duplicate_policy="$3" exclude
     local view_args=()
-    if [[ "$layout" == "PE" ]]; then view_args=(-f 66 -F 3840); else view_args=(-F 3844); fi
+    exclude="$(signal_exclude_mask "$layout" "$duplicate_policy")"
+    if [[ "$layout" == "PE" ]]; then view_args=(-f 66 -F "$exclude"); else view_args=(-F "$exclude"); fi
     samtools view "${view_args[@]}" "$bam" | awk '
         BEGIN {total=0; mapq0=0; low=0; xs=0}
         {
@@ -90,7 +91,9 @@ write_track() {
     local key="$1" layout="$2" genome="$3" policy="$4" bam="$5" output_dir="$6" fragment_length="$7" analysis_duplicate_policy="$8"
     local count scale chrom_sizes tmp bedgraph bigwig log description branch mapq duplicates composition normalized_source
     [[ -s "$bam" ]] || die "CPM input BAM missing for $key ($policy): $bam"
-    count="$(signal_count "$bam" "$layout")"
+    description="$(policy_description "$policy" "$analysis_duplicate_policy")"
+    IFS=$'\t' read -r branch mapq duplicates <<< "$description"
+    count="$(signal_count "$bam" "$layout" "$duplicates")"
     (( count > 0 )) || die "zero observations for $key ($policy)"
     scale="$(awk -v n="$count" 'BEGIN {printf "%.15g", 1000000/n}')"
     chrom_sizes="$(reference_value CHROM_SIZES "$genome")"
@@ -117,8 +120,6 @@ write_track() {
     is_true "$GENERATE_COVERAGE_BEDGRAPHS" || rm -f -- "$bedgraph"
     rm -f -- "$tmp"
 
-    description="$(policy_description "$policy" "$analysis_duplicate_policy")"
-    IFS=$'\t' read -r branch mapq duplicates <<< "$description"
     printf 'sample_key\tpolicy\tbam_branch\tmapq\tduplicates\tsignal_unit\tsignal_count\tscale\tformula\tse_fragment_length_bp\n' \
         > "${output_dir}/${key}.normalization_metadata.tsv"
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tC*1e6/L\t%s\n' \
@@ -128,7 +129,7 @@ write_track() {
 
     composition="$(awk -F '\t' -v branch="$branch" '$1==branch {sub(/^[^\t]*\t/, ""); print; exit}' "$MAPPING_COMPOSITION_CACHE")"
     if [[ -z "$composition" ]]; then
-        composition="$(mapping_composition "$bam" "$layout")"
+        composition="$(mapping_composition "$bam" "$layout" "$duplicates")"
         printf '%s\t%s\n' "$branch" "$composition" >> "$MAPPING_COMPOSITION_CACHE"
     fi
     normalized_source="deseq2_consensus"

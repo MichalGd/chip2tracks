@@ -23,17 +23,23 @@ case "$command_name" in
     view)
         count=false
         destination=""
+        exclude=""
         while (( $# > 0 )); do
             case "$1" in
                 -c) count=true; shift ;;
                 -o) destination="$2"; shift 2 ;;
-                -@|-q|-f|-F) shift 2 ;;
+                -F) exclude="$2"; shift 2 ;;
+                -@|-q|-f) shift 2 ;;
                 -b) shift ;;
                 *) shift ;;
             esac
         done
         if [[ "$count" == "true" ]]; then
-            printf '1\n'
+            case "$exclude" in
+                2828|2820) printf '2\n' ;;
+                3852|3844) printf '1\n' ;;
+                *) echo "unexpected signal-count mask: $exclude" >&2; exit 96 ;;
+            esac
         else
             [[ -n "$destination" ]]
             printf 'synthetic bam\n' > "$destination"
@@ -144,5 +150,7 @@ if grep -q 'tmp: unbound variable' "$log"; then
     echo "ERROR: filtering cleanup trap leaked into the worker" >&2
     exit 1
 fi
+grep -q "$key"$'\t2\t1\t2\t1\tretain' \
+    "$output/03_alignment/metrics/${key}.filter_counts.tsv"
 
 echo "Filtering cleanup-scope regression test passed"
