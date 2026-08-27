@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Corrected Git executable modes for the workflow entrypoint and all tracked
+  shell utilities/tests, and made CI reject non-executable shell archives. This
+  ensures `git archive` produces a directly runnable shared release.
 - Fixed duplicate-policy-aware signal counting across filtering metrics, CPM
   scale factors, coverage mapping-composition summaries, QC/FRiP denominators,
   paired-end fragment QC, and spike-in host/control ratios. Duplicate-retained
