@@ -15,6 +15,10 @@ permissive/stringent MAPQ and duplicate-retained/removed variants. Secondary,
 supplementary, QC-failed, noncanonical, blacklisted and optionally mitochondrial
 alignments are removed according to configuration.
 
+The complete reference contract and filtering order, including PE behavior when
+one mate overlaps a blacklist interval, are in
+[References, blacklist, and filtering](10_references_blacklist_and_filtering.md).
+
 The configured `EFFECTIVE_GENOME_SIZE_<ASSEMBLY>` is supplied to MACS3. The
 total length of the chromosome sizes file is not substituted for mappable
 effective genome size.
@@ -106,6 +110,9 @@ uses `SE_FRAGMENT_LENGTH_FALLBACK` (200 bp by default) with a warning and a
 metadata record; an explicit positive length or unextended `read` mode remains
 available.
 
+See [Genomic coverage tracks and normalization](12_tracks_and_normalization.md)
+for every formula, path, format switch, comparison scope, and recommended use.
+
 ## Replicates and QC
 
 The primary reproducible peak set follows the `ATACseq2tracks` support rule:
@@ -126,6 +133,9 @@ phantompeakqualtools NSC/RSC, FRiP, target/control fingerprints, replicate
 Spearman correlation and PCA. Thresholds are warnings rather than automatic
 biological truth; broad marks, low-input libraries, and ChIPmentation may need
 mark- and protocol-specific interpretation.
+
+Metric inputs, outputs, interpretation boundaries, and review order are detailed
+in [Quality control and interpretation](11_quality_control.md).
 
 ## Primary references
 

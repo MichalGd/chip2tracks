@@ -12,6 +12,7 @@ summary, and principal output tree.
 | Complete key list and example samplesheets | [`config/README.md`](../config/README.md) and [`config/config.conf.template`](../config/config.conf.template) |
 | Exact stage order, enable/disable behavior, checkpoints, and declared outputs | [Pipeline stages](07_pipeline_stages.md) |
 | Read-only inventory before deciding what server software and references can be reused | [Server audit](08_server_audit.md) |
+| Genome-reference contract, reuse of server resources, blacklist choice, and exact BAM filtering order | [References, blacklist, and filtering](10_references_blacklist_and_filtering.md) |
 
 ## Understand the analysis
 
@@ -20,6 +21,11 @@ summary, and principal output tree.
 | PE/SE signal units, filtering branches, CPM and DESeq2 track formulas, cohort isolation, and caller behavior | [Methods and normalization](02_methods.md) |
 | The distinct roles of IgG/input/mock controls, primary raw-count models, DiffBind, and sensitivity analyses | [Controls and differential enrichment](03_differential_enrichment.md) |
 | TSS/TES/gene-body aggregate plots, BED12 reference preparation, HPA subsets, manifests, and standalone reuse | [Metagene aggregate-signal module](06_metagene.md) |
+| FastQC, alignment, complexity, fragment, cross-correlation, FRiP, control, replicate, TSS, and spike-in QC | [Quality control and interpretation](11_quality_control.md) |
+| CPM, DESeq2 consensus, robust-CPM, spike-in, fold-enrichment, bedGraph/bigWig, and multimapper reporting | [Genomic coverage tracks and normalization](12_tracks_and_normalization.md) |
+| Biological versus technical replicates, shared controls, consensus, IDR, blocks, and contrast direction | [Replicates, controls, and experimental design](13_replicates_and_design.md) |
+| Inputs, models, outputs, statuses, and interpretation for all four differential variants | [Differential occupancy analysis](14_differential_occupancy.md) |
+| Implemented nearest-gene/cCRE annotations and explicit v0.1 boundaries | [Peak and differential-result annotation](15_annotation.md) |
 
 ## Operate and validate the workflow
 

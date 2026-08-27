@@ -52,3 +52,12 @@ ordinary `config.conf` values. Stringent robust-CPM is also enabled.
 `TOTAL_CPU_BUDGET=auto` uses the CPUs visible to the process. Preflight records
 per-stage maximum CPU requests and warns on overcommit by default; use
 `RESOURCE_CHECK_MODE=fail` for strict enforcement.
+
+Scientific configuration guidance:
+
+- [References, blacklist, and filtering](../docs/10_references_blacklist_and_filtering.md)
+- [Quality control](../docs/11_quality_control.md)
+- [Tracks and normalization](../docs/12_tracks_and_normalization.md)
+- [Replicates, controls, and design](../docs/13_replicates_and_design.md)
+- [Differential occupancy](../docs/14_differential_occupancy.md)
+- [Annotation](../docs/15_annotation.md)

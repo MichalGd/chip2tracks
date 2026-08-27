@@ -15,6 +15,8 @@ There is no replicate-1 fallback.
 One samplesheet defines one compatible target/antibody and peak universe.
 Different factors, antibodies, layouts, target classes, or analysis policies
 must use separate runs; biological conditions and replicates remain together.
+See [Replicates, controls, and experimental design](13_replicates_and_design.md)
+for the merge, shared-control, consensus, block, and contrast rules.
 
 Configuration is plain `KEY=VALUE`, not a sourced user shell script. Unknown
 keys, duplicate keys, shell expansions, invalid booleans, and incomplete spike
@@ -34,6 +36,11 @@ When `SPIKEIN_MODE=dm6`, every row records a positive spike-to-host ratio,
 addition stage, and lot. Reference configuration points to a competitive
 host+dm6 index; post hoc independent alignment is not treated as equivalent.
 Spike-in is optional and `SPIKEIN_MODE=none` is the public default.
+
+Each samplesheet row also carries the blacklist path used for that library.
+Reference compatibility and the exact blacklist/canonical/MAPQ/duplicate
+filtering order are documented in
+[References, blacklist, and filtering](10_references_blacklist_and_filtering.md).
 
 The optional metagene stage uses a separate tab-delimited gene-set manifest so
 annotation releases and HPA-derived subsets can be replaced without modifying

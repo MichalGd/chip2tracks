@@ -23,5 +23,9 @@
   opt-in because they complicate cohort comparisons.
 - Differential models and normalized consensus tracks skip rather than silently
   discard zero-count samples. Sparse or discordant cohorts require review.
+- The v0.1 annotation layer reports nearest whole-gene spans and raw cCRE
+  overlaps. It does not yet reproduce ATACseq2tracks promoter/exon/intron,
+  nearest-TSS, primary-cCRE, contrast-summary, or DiffBind annotation features;
+  motif enrichment is not implemented.
 - The inherited Bash engine is retained for v0.1. A workflow-engine migration is
   deferred until real ChIP-seq and ChIPmentation pilots pass.

@@ -121,6 +121,10 @@ Priority coverage outputs are enabled in the template:
 - `04_tracks/deseq2_robust_cpm/stringent/`: stringent BAMs scaled by
   consensus-derived robust effective library sizes.
 
+The formulas, comparison scope, filtering policy, spike-in scaling, and
+control-relative fold-enrichment semantics for every family are documented in
+[Genomic coverage tracks and normalization](docs/12_tracks_and_normalization.md).
+
 `04_tracks/cpm/mapping_composition.tsv` reports, for every coverage policy,
 the total signal observations, MAPQ 0 and MAPQ <30 observations, and Bowtie2
 `XS`-tagged candidate multimappers. The same values apply to bedGraph and
@@ -160,14 +164,19 @@ obligation to cite upstream software or comply with their licenses.
 
 ## Documentation
 
-- [Configuration and sample sheet](docs/01_inputs_and_configuration.md)
-- [Methods and assay-specific choices](docs/02_methods.md)
-- [Differential enrichment](docs/03_differential_enrichment.md)
-- [Outputs and recovery](docs/04_outputs_and_recovery.md)
-- [Limitations](docs/05_limitations.md)
-- [Pipeline stages](docs/07_pipeline_stages.md)
-- [Server audit](docs/08_server_audit.md)
-- [Implementation and release plan](docs/09_implementation_and_release.md)
+- Start and operate: [configuration and samplesheet](docs/01_inputs_and_configuration.md),
+  [pipeline stages](docs/07_pipeline_stages.md), and
+  [outputs and recovery](docs/04_outputs_and_recovery.md).
+- Understand the analysis: [methods](docs/02_methods.md),
+  [references/blacklist/filtering](docs/10_references_blacklist_and_filtering.md),
+  [quality control](docs/11_quality_control.md), and
+  [tracks/normalization](docs/12_tracks_and_normalization.md).
+- Design and interpret comparisons: [replicates and controls](docs/13_replicates_and_design.md),
+  [differential occupancy](docs/14_differential_occupancy.md), and
+  [annotation](docs/15_annotation.md).
+- Validate deployment: [server audit](docs/08_server_audit.md),
+  [limitations](docs/05_limitations.md), and the complete
+  [documentation index](docs/README.md).
 
 ## License
 

@@ -43,8 +43,12 @@ The priority coverage tree is:
     └── stringent/<cohort>/         stringent robust-CPM tracks and tables
 ```
 
+The complete family matrix, scaling formulas, file-format behavior, and track
+selection guidance are in
+[Genomic coverage tracks and normalization](12_tracks_and_normalization.md).
+
 The root README gives a more detailed
-[principal output tree](../README.md#principal-outputs), and
+[stage and output overview](../README.md#stages-and-main-outputs), and
 [Pipeline stages](07_pipeline_stages.md) maps every stage to its declared
 checkpoint output.
 
@@ -119,6 +123,10 @@ disabled, skipped, failed, or missing variants.
 Machine-readable TSVs in `00_metadata`, `04_tracks`, `05_peaks/consensus`,
 `06_qc`, and `08_differential` remain authoritative and should be preferred over
 parsing HTML or filenames. Browser definitions are written under `09_browser/`.
+See [Quality control](11_quality_control.md),
+[Differential occupancy](14_differential_occupancy.md), and
+[Annotation](15_annotation.md) for the stable scientific outputs in those
+directories.
 
 `RUN_MULTIQC=true` enables both the preprocessing FastQC aggregation and this
 final unified report. The final scan includes retained FastQC, Trim Galore,

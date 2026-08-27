@@ -25,6 +25,12 @@ Outputs are separated into `primary_target_only`,
 `sensitivity_control_subtracted`, and
 `sensitivity_target_control_interaction`; only the first is primary.
 
+For exact eligibility, design formulas, normalization, contrast direction,
+result trees, and interpretation, see
+[Differential occupancy analysis](14_differential_occupancy.md). Replicate and
+shared-control metadata rules are in
+[Replicates, controls, and experimental design](13_replicates_and_design.md).
+
 ## Final differential summary
 
 `10_reports/differential_occupancy_summary.tsv` is the stable run-wide summary

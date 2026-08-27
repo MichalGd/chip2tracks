@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Expanded the task-oriented documentation with dedicated guides for reference
+  reuse, blacklist and alignment filtering, ChIP-specific QC, genomic coverage
+  normalization, biological/technical replicates, controls and design,
+  differential occupancy, and annotation.
+- Added a track-family matrix covering CPM, DESeq2 consensus, robust CPM,
+  Drosophila spike-in, and MACS3 fold-enrichment outputs, including bedGraph vs
+  bigWig behavior and multimapper/ambiguity reporting.
+- Documented exact implemented behavior and explicit v0.1 boundaries, including
+  the lighter annotation layer relative to ATACseq2tracks. No workflow behavior
+  or configuration default changed.
+
 ## chip2tracks 0.1.0 - 2026-08-25
 
 - Forked the checksum-recorded local `cutnrun2tracks` 0.2.8 source into an
