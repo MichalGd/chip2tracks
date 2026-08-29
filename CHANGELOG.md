@@ -5,6 +5,7 @@
 - Pinned the isolated epic2 environment to setuptools 80.9.0, added executable
   import/option validation to preflight, and added a tiny paired-end epic2
   post-install smoke test so a broken broad-peak caller cannot pass preflight.
+  The smoke fixture creates BAM indexes required by epic2's region iterator.
 - Made complete failure of every primary peak call terminal even when optional
   companion-caller failures are configured to continue.
 - Parallelized sample-level ChIP QC and TSS profiles using

@@ -55,6 +55,8 @@ write_sam "$temporary/treatment.sam" 100
 write_sam "$temporary/control.sam" 5000
 "$SAMTOOLS_COMMAND" view -b -o "$temporary/treatment.bam" "$temporary/treatment.sam"
 "$SAMTOOLS_COMMAND" view -b -o "$temporary/control.bam" "$temporary/control.sam"
+"$SAMTOOLS_COMMAND" index "$temporary/treatment.bam"
+"$SAMTOOLS_COMMAND" index "$temporary/control.bam"
 
 "$EPIC2_COMMAND" \
     --treatment "$temporary/treatment.bam" \

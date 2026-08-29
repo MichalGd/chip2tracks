@@ -8,18 +8,26 @@ mkdir -p "$TMP/bin"
 cat > "$TMP/bin/samtools" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "$1" == "view" ]]
-shift
-output=""; input=""
-while (( $# )); do
-    case "$1" in
-        -b) shift ;;
-        -o) output="$2"; shift 2 ;;
-        *) input="$1"; shift ;;
-    esac
-done
-[[ -n "$output" && -s "$input" ]]
-cp "$input" "$output"
+case "$1" in
+    view)
+        shift
+        output=""; input=""
+        while (( $# )); do
+            case "$1" in
+                -b) shift ;;
+                -o) output="$2"; shift 2 ;;
+                *) input="$1"; shift ;;
+            esac
+        done
+        [[ -n "$output" && -s "$input" ]]
+        cp "$input" "$output"
+        ;;
+    index)
+        [[ -s "$2" ]]
+        printf 'mock index\n' > "$2.bai"
+        ;;
+    *) exit 2 ;;
+esac
 MOCK
 
 cat > "$TMP/bin/epic2" <<'MOCK'
@@ -39,7 +47,8 @@ while (( $# )); do
         *) echo "unexpected epic2 argument: $1" >&2; exit 2 ;;
     esac
 done
-[[ -s "$treatment" && -s "$control" && -s "$chromsizes" && "$guess" == "true" && -n "$output" ]]
+[[ -s "$treatment" && -s "$treatment.bai" && -s "$control" && -s "$control.bai" \
+    && -s "$chromsizes" && "$guess" == "true" && -n "$output" ]]
 : > "$output"
 MOCK
 chmod +x "$TMP/bin/samtools" "$TMP/bin/epic2"
