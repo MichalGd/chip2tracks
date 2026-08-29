@@ -95,6 +95,24 @@ class InterfaceTests(unittest.TestCase):
         script = (ROOT / "scripts/annotate_browser.sh").read_text(encoding="utf-8")
         self.assertGreaterEqual(script.count('bedtools sort -faidx "$chrom_sizes"'), 2)
         self.assertIn('bedtools closest -a "$sorted_consensus" -b "$genes" -d -g "$chrom_sizes"', script)
+        self.assertIn("generate_ucsc_tracks.py", script)
+
+    def test_config_rejects_non_url_ucsc_base(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            text = (ROOT / "config/config.conf.template").read_text(encoding="utf-8")
+            text = text.replace("/absolute/path/to/samplesheet.csv", str(directory / "samples.csv"))
+            text = text.replace("/absolute/path/to/results", str(directory / "results"))
+            text = text.replace("UCSC_BIGDATA_URL_BASE=", "UCSC_BIGDATA_URL_BASE=/server/local/path")
+            config = directory / "config.conf"
+            config.write_text(text, encoding="utf-8")
+            result = subprocess.run([
+                sys.executable, str(ROOT / "scripts/validate_config.py"), str(config),
+                "--template", str(ROOT / "config/config.conf.template"),
+                "--write-shell", str(directory / "resolved.conf"),
+            ], text=True, capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("UCSC_BIGDATA_URL_BASE must use HTTP", result.stderr)
 
     def test_config_template_is_complete_and_safe(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Replaced the incomplete multi-line UCSC output with validated one-line
+  bigWig custom-track descriptors for every retained track family. Separate
+  family files, a grouped all-tracks file, a manifest, URL-mode status, and a
+  completed-run regeneration utility are written under `09_browser/ucsc/`.
 - Pinned the isolated epic2 environment to setuptools 80.9.0, added executable
   import/option validation to preflight, and added a tiny paired-end epic2
   post-install smoke test so a broken broad-peak caller cannot pass preflight.

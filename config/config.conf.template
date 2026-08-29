@@ -229,6 +229,10 @@ KEEP_FILTERED_BAMS=true
 KEEP_SPIKEIN_BAMS=false
 
 # Browser and provenance
+# Required for UCSC to retrieve bigWigs. It must be an HTTP/HTTPS/FTP URL whose
+# path corresponds to OUTPUT_DIR and whose server supports byte-range requests.
+# When empty, syntactically valid descriptors are still written but are marked
+# local-only and cannot be loaded by the public UCSC Genome Browser.
 UCSC_BIGDATA_URL_BASE=
 UCSC_TRACK_PREFIX=CHIP
 WRITE_IGV_SESSION=true

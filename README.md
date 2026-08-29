@@ -118,6 +118,12 @@ The stable top-level output groups are `00_metadata`, `01_fastq_qc`,
 `02_trimmed_fastq`, `03_alignment`, `04_tracks`, `05_peaks`, `06_qc`,
 `07_annotation`, `08_differential`, `09_browser`, and `10_reports`.
 
+`09_browser/ucsc/` contains one-line UCSC custom-track descriptors for every
+retained bigWig: one file per track family, `all_bigwig_tracks.txt` with groups
+separated by ignored comment/blank lines, the backward-compatible `trackDb.txt`
+copy, and a family manifest. A nonempty HTTP/HTTPS/FTP
+`UCSC_BIGDATA_URL_BASE` is required for public UCSC to retrieve the bigWigs.
+
 Restart with `--from-stage NAME`; stop a pilot with `--stop-after NAME`. The
 named stage order is printed by `bash chip2tracks.sh --help`.
 

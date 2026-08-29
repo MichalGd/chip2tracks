@@ -5,7 +5,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf -- "$TMP"' EXIT
 
 mkdir -p "$TMP/bin" "$TMP/output/00_metadata" \
-    "$TMP/output/05_peaks/consensus/C1/macs3/broad"
+    "$TMP/output/04_tracks" "$TMP/output/05_peaks/consensus/C1/macs3/broad"
 
 cat > "$TMP/bin/bedtools" <<'MOCK'
 #!/usr/bin/env bash

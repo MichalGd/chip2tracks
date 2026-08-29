@@ -151,6 +151,11 @@ The same table is copied to
 `10_reports/coverage_mapping_composition.tsv` and included in the lightweight
 and MultiQC final reports.
 
+Every retained `.bw` from the families above receives a UCSC one-line custom
+track descriptor under `09_browser/ucsc/`. Family-specific files and the
+grouped `all_bigwig_tracks.txt` are generated from the actual output tree, so
+disabled or skipped track families do not create stale descriptors.
+
 ## Choosing a track
 
 | Goal | Preferred starting family |

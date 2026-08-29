@@ -6,8 +6,6 @@ source "${SCRIPT_DIR}/lib/common.sh"
 require_config
 
 mkdir -p "${OUTPUT_DIR}/07_annotation" "${OUTPUT_DIR}/09_browser/ucsc" "${OUTPUT_DIR}/09_browser/igv"
-trackdb="${OUTPUT_DIR}/09_browser/ucsc/trackDb.txt"
-: > "$trackdb"
 
 while IFS=$'\t' read -r cohort cohort_key genome assay_profile factor antibody_id layout target_class duplicate_policy caller peak_class n_samples sample_keys conditions; do
     [[ "$cohort" == "cohort_id" ]] && continue
@@ -39,15 +37,8 @@ while IFS=$'\t' read -r cohort cohort_key genome assay_profile factor antibody_i
     fi
 done < "$COHORT_MANIFEST"
 
-while IFS=$'\t' read -r sample_key sample_id replicate layout genome assay_profile factor antibody_id target_class condition rest; do
-    [[ "$sample_key" == "sample_key" ]] && continue
-    bw="${OUTPUT_DIR}/04_tracks/cpm/${sample_key}.CPM.bw"
-    [[ -s "$bw" ]] || continue
-    url="$bw"
-    [[ -n "$UCSC_BIGDATA_URL_BASE" ]] && url="${UCSC_BIGDATA_URL_BASE%/}/04_tracks/cpm/${sample_key}.CPM.bw"
-    printf 'track %s_%s\ntype bigWig\nbigDataUrl %s\nshortLabel %s CPM\nlongLabel %s %s %s CPM\nvisibility full\nautoScale on\n\n' \
-        "$UCSC_TRACK_PREFIX" "$sample_key" "$url" "$sample_key" "$ASSAY_PROFILE" "$factor" "$condition" >> "$trackdb"
-done < "$SAMPLE_MANIFEST"
+run_logged python3 "${SCRIPT_DIR}/generate_ucsc_tracks.py" "$OUTPUT_DIR" \
+    --url-base "$UCSC_BIGDATA_URL_BASE" --track-prefix "$UCSC_TRACK_PREFIX"
 
 if is_true "$WRITE_IGV_SESSION"; then
     session="${OUTPUT_DIR}/09_browser/igv/chip2tracks_session.xml"

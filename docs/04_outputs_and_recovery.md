@@ -135,6 +135,46 @@ See [Quality control](11_quality_control.md),
 [Annotation](15_annotation.md) for the stable scientific outputs in those
 directories.
 
+### UCSC custom-track descriptors
+
+`09_browser/ucsc/` contains:
+
+- numbered family `.txt` files, one for each generated bigWig family;
+- `all_bigwig_tracks.txt`, containing every family separated by an ignored
+  `# family=...` comment and a blank line;
+- `trackDb.txt`, an identical backward-compatible custom-track-text filename;
+- `track_family_manifest.tsv`, `status.tsv`, and `README.txt`.
+
+Every descriptor occupies exactly one physical line and begins with `track
+type=bigWig`. Required `name`, `description`, and `bigDataUrl` attributes are
+validated before the annotation stage succeeds. Empty and `#` lines are valid
+UCSC separators and are ignored by its parser. Despite its historical name,
+this `trackDb.txt` is a custom-track submission file, not a multi-file track-hub
+`trackDb` stanza file.
+
+Public UCSC servers cannot read `/home/...` paths. Set
+`UCSC_BIGDATA_URL_BASE` to the HTTP/HTTPS/FTP URL corresponding to the analysis
+output root, and ensure the web server supports byte-range requests. With an
+empty base, the files remain syntax-valid but `status.tsv` marks them
+`local_path_not_ucsc_retrievable`.
+
+Regenerate browser descriptors for a completed run without rerunning analysis:
+
+```bash
+PYTHON_COMMAND=/opt/miniconda/envs/chip2tracks-0.1.0/bin/python3 \
+  bash /opt/bioinformatics/workflows/chip2tracks/current/utilities/regenerate_ucsc_tracks.sh \
+  --output-dir /absolute/path/to/chip2tracks \
+  --url-base https://tracks.example.org/path/to/analysis
+```
+
+The optional URL override avoids changing the completed run's historical
+resolved configuration. Omit it only when that configuration already contains
+the correct public base URL.
+
+Format and hosting behavior follow the official
+[UCSC custom-track specification](https://genome.ucsc.edu/goldenPath/help/customTrack.html)
+and [bigWig documentation](https://genome.ucsc.edu/goldenPath/help/bigWig.html).
+
 `RUN_MULTIQC=true` enables both the preprocessing FastQC aggregation and this
 final unified report. The final scan includes retained FastQC, Trim Galore,
 Bowtie2, Picard, samtools, and preseq outputs plus ChIP-specific custom-content

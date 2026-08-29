@@ -240,6 +240,9 @@ def validate(values: dict[str, str], required_keys: set[str]) -> list[str]:
         errors.append("ADAPTER_PRESET=none requires TRIM_ADAPTERS=false")
     if values.get("UMI_BARCODE_TAG"):
         errors.append("UMI_BARCODE_TAG is not supported in chip2tracks v0.1")
+    ucsc_url = values.get("UCSC_BIGDATA_URL_BASE", "")
+    if ucsc_url and not re.match(r"^(https?|ftp)://[^\s]+$", ucsc_url, flags=re.IGNORECASE):
+        errors.append("UCSC_BIGDATA_URL_BASE must use HTTP, HTTPS, or FTP without whitespace")
     if values.get("SPIKEIN_MODE") != "none":
         for key in ("SPIKEIN_REFERENCE_ID", "SPIKEIN_INDEX", "SPIKEIN_FASTA", "SPIKEIN_CHROM_SIZES", "SPIKEIN_ALLOWED_CONTIGS"):
             if not values.get(key):
