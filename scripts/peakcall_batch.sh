@@ -202,17 +202,28 @@ fi
 summary="${OUTPUT_DIR}/05_peaks/per_sample/peakcall_status.tsv"
 printf 'sample_key\tcontrol_key\tprimary_caller\tprimary_class\tstatus\tprimary_peak_count\tcaller_warnings\treason\n' > "$summary"
 warning_count=0
+target_count=0
+primary_success_count=0
 while IFS=$'\t' read -r \
     sample_key sample_id replicate layout genome assay_profile factor antibody_id target_class condition treatment cell_type \
     is_control rest; do
     [[ "$sample_key" == "sample_key" || "$is_control" == "TRUE" ]] && continue
+    target_count=$((target_count + 1))
     metadata="${OUTPUT_DIR}/05_peaks/per_sample/${sample_key}/peakcall_metadata.tsv"
     [[ -s "$metadata" ]] || die "peak-call metadata missing for $sample_key"
     tail -n 1 "$metadata" >> "$summary"
     status="$(awk -F '\t' 'NR==2 {print $5}' "$metadata")"
     warnings="$(awk -F '\t' 'NR==2 {print $7}' "$metadata")"
     [[ "$status" == "SUCCESS" && "$warnings" == "." ]] || warning_count=$((warning_count + 1))
+    [[ "$status" == "SUCCESS" ]] && primary_success_count=$((primary_success_count + 1))
 done < "$SAMPLE_MANIFEST"
+if (( target_count > 0 && primary_success_count == 0 )); then
+    printf 'status\ttarget_samples\tprimary_successes\twarning_samples\tfailure_policy\nFAILED\t%s\t0\t%s\t%s\n' \
+        "$target_count" "$warning_count" "$PEAKCALL_FAILURE_POLICY" \
+        > "${OUTPUT_DIR}/05_peaks/per_sample/stage_status.tsv"
+    die "all $target_count primary peak calls failed or produced no accepted peaks"
+fi
 stage_status="$([[ "$warning_count" -eq 0 ]] && echo SUCCESS || echo COMPLETED_WITH_WARNINGS)"
-printf 'status\twarning_samples\tfailure_policy\n%s\t%s\t%s\n' \
-    "$stage_status" "$warning_count" "$PEAKCALL_FAILURE_POLICY" > "${OUTPUT_DIR}/05_peaks/per_sample/stage_status.tsv"
+printf 'status\ttarget_samples\tprimary_successes\twarning_samples\tfailure_policy\n%s\t%s\t%s\t%s\t%s\n' \
+    "$stage_status" "$target_count" "$primary_success_count" "$warning_count" "$PEAKCALL_FAILURE_POLICY" \
+    > "${OUTPUT_DIR}/05_peaks/per_sample/stage_status.tsv"

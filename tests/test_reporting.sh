@@ -64,7 +64,8 @@ while (( $# )); do
         --outdir) out="$2"; shift 2 ;;
         --filename) name="$2"; shift 2 ;;
         --exclude|--ignore|--cl-config|--data-format) shift 2 ;;
-        --export|--force) shift ;;
+        --export) echo "ERROR: static plot export unexpectedly enabled" >&2; exit 71 ;;
+        --force) shift ;;
         *) shift ;;
     esac
 done

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Pinned the isolated epic2 environment to setuptools 80.9.0, added executable
+  import/option validation to preflight, and added a tiny paired-end epic2
+  post-install smoke test so a broken broad-peak caller cannot pass preflight.
+- Made complete failure of every primary peak call terminal even when optional
+  companion-caller failures are configured to continue.
+- Parallelized sample-level ChIP QC and TSS profiles using
+  `QC_SAMPLE_PARALLEL_JOBS`, added QC to the preflight CPU budget, and retained
+  deterministic manifest-order summary tables.
+- Added per-stage UTC start/end/elapsed records, parallel checkpoint/final
+  hashing controls, and optional MultiQC static-plot export. New performance
+  settings receive backward-compatible defaults in older config files.
 - Corrected Git executable modes for the workflow entrypoint and all tracked
   shell utilities/tests, and made CI reject non-executable shell archives. This
   ensures `git archive` produces a directly runnable shared release.

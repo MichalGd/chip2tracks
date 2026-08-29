@@ -36,6 +36,13 @@ class InterfaceTests(unittest.TestCase):
         self.assertTrue((ROOT / "environment.spp.yml").is_file())
         self.assertTrue((ROOT / "environment.preseq.yml").is_file())
 
+        epic2_environment = (ROOT / "environment.epic2.yml").read_text(encoding="utf-8")
+        preflight = (ROOT / "scripts/preflight.sh").read_text(encoding="utf-8")
+        self.assertIn("setuptools =80.9.0", epic2_environment)
+        self.assertIn('"$EPIC2_COMMAND" --help', preflight)
+        self.assertIn("--guess-bampe", preflight)
+        self.assertTrue((ROOT / "utilities/smoke_test_epic2.sh").is_file())
+
         sidecar = (ROOT / "utilities/run_phantompeak_sidecar.sh").read_text(encoding="utf-8")
         launcher = (ROOT / "utilities/chip2tracks_shared_launcher.sh").read_text(encoding="utf-8")
         self.assertIn('exec "$RSCRIPT" "$RUN_SPP" "$@"', sidecar)
@@ -50,6 +57,21 @@ class InterfaceTests(unittest.TestCase):
         self.assertIn('--exclude deeptools', unified)
         self.assertIn('multiqc_custom_content_manifest.tsv', unified)
         self.assertIn('report_checksums.sha256', recovery)
+        self.assertIn('MULTIQC_EXPORT_PLOTS', report)
+        self.assertIn('multiqc_args+=(--export)', unified)
+
+    def test_qc_sample_work_is_parallel_and_aggregated(self) -> None:
+        qc = (ROOT / "scripts/qc_batch.sh").read_text(encoding="utf-8")
+        self.assertIn('parallel_pool_init "$QC_SAMPLE_PARALLEL_JOBS"', qc)
+        self.assertIn('parallel_pool_submit "$sample_key" qc_worker', qc)
+        self.assertIn('.observations.tsv', qc)
+        self.assertIn('.complexity.tsv', qc)
+
+    def test_stage_timing_and_parallel_hashing_are_exposed(self) -> None:
+        entrypoint = (ROOT / "chip2tracks.sh").read_text(encoding="utf-8")
+        self.assertIn("stage_timing.tsv", entrypoint)
+        self.assertIn("CHECKPOINT_PARALLEL_JOBS", entrypoint)
+        self.assertIn("CHECKSUM_PARALLEL_JOBS", entrypoint)
 
     def test_filtering_uses_indexed_marked_bam_for_region_selection(self) -> None:
         script = (ROOT / "scripts/mark_filter_batch.sh").read_text(encoding="utf-8")
@@ -110,6 +132,34 @@ class InterfaceTests(unittest.TestCase):
             self.assertIn("SE_FRAGMENT_LENGTH=auto", resolved)
             self.assertIn("PEAK_CALLERS=macs3,epic2", resolved)
             self.assertIn("RUN_IDR=false", resolved)
+            self.assertIn("MULTIQC_EXPORT_PLOTS=false", resolved)
+            self.assertIn("CHECKPOINT_PARALLEL_JOBS=4", resolved)
+            self.assertIn("CHECKSUM_PARALLEL_JOBS=4", resolved)
+
+    def test_new_performance_settings_have_backward_compatible_defaults(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            text = (ROOT / "config/config.conf.template").read_text(encoding="utf-8")
+            text = text.replace("/absolute/path/to/samplesheet.csv", str(directory / "samples.csv"))
+            text = text.replace("/absolute/path/to/results", str(directory / "results"))
+            for line in (
+                "MULTIQC_EXPORT_PLOTS=false\n",
+                "CHECKPOINT_PARALLEL_JOBS=4\n",
+                "CHECKSUM_PARALLEL_JOBS=4\n",
+            ):
+                text = text.replace(line, "")
+            config = directory / "config.conf"
+            config.write_text(text, encoding="utf-8")
+            resolved = directory / "resolved.conf"
+            result = subprocess.run([
+                sys.executable, str(ROOT / "scripts/validate_config.py"), str(config),
+                "--template", str(ROOT / "config/config.conf.template"),
+                "--write-shell", str(resolved),
+            ], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            resolved_text = resolved.read_text(encoding="utf-8")
+            self.assertIn("MULTIQC_EXPORT_PLOTS=false", resolved_text)
+            self.assertIn("CHECKPOINT_PARALLEL_JOBS=4", resolved_text)
 
     def test_config_rejects_umi_processing_in_v01(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

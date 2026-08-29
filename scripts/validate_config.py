@@ -15,7 +15,7 @@ from pathlib import Path
 BOOLEAN_KEYS = {
     "ALLOW_MIXED_LAYOUTS", "ALLOW_MIXED_GENOMES", "TRIM_ADAPTERS",
     "ADAPTER_AUTO_DETECTION_REQUIRED",
-    "RUN_FASTQC", "RUN_MULTIQC", "BOWTIE2_DOVETAIL", "BOWTIE2_MIXED",
+    "RUN_FASTQC", "RUN_MULTIQC", "MULTIQC_EXPORT_PLOTS", "BOWTIE2_DOVETAIL", "BOWTIE2_MIXED",
     "BOWTIE2_DISCORDANT", "REMOVE_MITO", "ALLOW_EMPTY_FILTERED_BAM",
     "ALLOW_SHARED_CONTROLS",
     "ALLOW_CONTROL_FREE_PEAKCALL", "ALLOW_EMPTY_PEAKS",
@@ -62,6 +62,7 @@ POSITIVE_INTEGER_KEYS = {
     "PEAKCALL_PARALLEL_JOBS", "SPIKEIN_PARALLEL_JOBS",
     "METAGENE_BODY_LENGTH_BP", "METAGENE_BIN_SIZE_BP", "METAGENE_DPI",
     "METAGENE_THREADS_COMPUTEMATRIX", "METAGENE_PARALLEL_JOBS",
+    "CHECKPOINT_PARALLEL_JOBS", "CHECKSUM_PARALLEL_JOBS",
 }
 
 NONNEGATIVE_INTEGER_KEYS = {
@@ -100,6 +101,14 @@ REFERENCE_KEY = re.compile(
     r"^(INDEX|FASTA|CHROM_SIZES|CANONICAL_CONTIGS|GTF|BLACKLIST|TSS_BED|CCRE_BED|EFFECTIVE_GENOME_SIZE)_[A-Z0-9_]+$"
 )
 KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+# Defaults for settings introduced after 0.1.0. They keep already-prepared
+# configs restartable while the resolved configuration records the new values.
+BACKWARD_COMPATIBLE_DEFAULTS = {
+    "MULTIQC_EXPORT_PLOTS": "false",
+    "CHECKPOINT_PARALLEL_JOBS": "4",
+    "CHECKSUM_PARALLEL_JOBS": "4",
+}
 
 
 def template_keys(template: Path) -> set[str]:
@@ -297,6 +306,8 @@ def main() -> int:
     try:
         allowed = template_keys(args.template)
         values = parse_config(args.config, allowed)
+        for key, value in BACKWARD_COMPATIBLE_DEFAULTS.items():
+            values.setdefault(key, value)
         if args.samplesheet:
             values["SAMPLESHEET"] = args.samplesheet
         if args.output_dir:

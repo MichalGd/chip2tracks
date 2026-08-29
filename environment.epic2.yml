@@ -5,4 +5,7 @@ channels:
   - nodefaults
 dependencies:
   - python =3.10
+  # epic2 imports pkg_resources at startup. setuptools 82 removed that module,
+  # so keep the last compatible setuptools release in this isolated sidecar.
+  - setuptools =80.9.0
   - epic2 =0.0.54

@@ -28,6 +28,18 @@ preseq, and optional IDR in `environment.epic2.yml`, `environment.spp.yml`,
 zlib constraints can conflict with the modern main environment. Prefer already
 installed compatible commands; otherwise create only the required sidecars.
 
+The epic2 sidecar pins `setuptools=80.9.0` because epic2 0.0.54 imports the
+legacy `pkg_resources` module. After creating or updating that sidecar, run:
+
+```bash
+EPIC2_COMMAND=/opt/miniconda/envs/chip2tracks-epic2-0.0.54/bin/epic2 \
+  bash utilities/smoke_test_epic2.sh
+```
+
+This creates temporary paired-end BAMs, exercises epic2's `--guess-bampe`
+path, and deletes the fixtures. Normal workflow preflight also executes
+`epic2 --help`; an import-broken launcher is a preflight failure.
+
 `PHANTOMPEAK_COMMAND` is executed as a command rather than forced through the
 main environment's `Rscript`. A site launcher may therefore expose a small
 `run_spp.R` wrapper that executes both the script and R from the SPP sidecar.

@@ -30,6 +30,11 @@ The declared output is the path checked by the stage checkpoint. A stage may
 write additional files and directories documented in
 [Outputs and recovery](04_outputs_and_recovery.md).
 
+`PEAKCALL_FAILURE_POLICY=continue` permits an optional companion caller to fail
+without discarding successful primary calls. It never converts total primary
+failure into success: if no target library has a successful primary peak call,
+the peak-calling stage writes `FAILED` status and stops the workflow.
+
 ## Optional modules
 
 Optional stages remain in the stage sequence. When a module is disabled, its

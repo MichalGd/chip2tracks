@@ -95,7 +95,7 @@ fi
 
 python3 "${SCRIPT_DIR}/scripts/reference_manifest.py" "$C2T_CONFIG" \
     "$OUTPUT_DIR/00_metadata/sample_manifest.tsv" "$OUTPUT_DIR/00_metadata/reference_manifest.tsv"
-RUN_SIGNATURE="$(python3 "${SCRIPT_DIR}/scripts/checkpoint.py" signature \
+RUN_SIGNATURE="$(python3 "${SCRIPT_DIR}/scripts/checkpoint.py" signature --jobs "$CHECKPOINT_PARALLEL_JOBS" \
     "$SCRIPT_DIR/VERSION" "$SCRIPT_DIR/scripts" "$SCRIPT_DIR/common" "$C2T_CONFIG" \
     "$OUTPUT_DIR/00_metadata/sanitized_samplesheet.csv" "$OUTPUT_DIR/00_metadata/reference_manifest.tsv")"
 printf 'run_id\tworkflow_version\trun_signature\tassay_profile\tspikein_mode\n%s\t%s\t%s\t%s\t%s\n' \
@@ -106,6 +106,18 @@ else
     rm -f -- "$OUTPUT_DIR/00_metadata/commands.log"
 fi
 
+timing_table="$OUTPUT_DIR/00_metadata/stage_timing.tsv"
+printf 'stage\tstatus\tstart_utc\tend_utc\telapsed_seconds\n' > "$timing_table"
+record_stage_timing() {
+    local stage="$1" status="$2" start_utc="$3" start_epoch="$4"
+    local end_utc end_epoch elapsed
+    end_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    end_epoch="$(date -u +%s)"
+    elapsed=$((end_epoch - start_epoch))
+    printf '%s\t%s\t%s\t%s\t%s\n' "$stage" "$status" "$start_utc" "$end_utc" "$elapsed" >> "$timing_table"
+    printf '%s' "$elapsed"
+}
+
 force=false
 before_from_stage=false
 [[ -n "$FROM_STAGE" ]] && before_from_stage=true
@@ -115,28 +127,45 @@ run_stage() {
     local checkpoint="$OUTPUT_DIR/.checkpoints/${stage}.json"
     shift 2
     local outputs=("$@")
+    local start_utc start_epoch elapsed status
+    start_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    start_epoch="$(date -u +%s)"
     if [[ "$stage" == "$FROM_STAGE" ]]; then
         before_from_stage=false
         force=true
     fi
     if is_true "$before_from_stage"; then
         if python3 "$SCRIPT_DIR/scripts/checkpoint.py" adopt --checkpoint "$checkpoint" \
-            --stage "$stage" --signature "$RUN_SIGNATURE"; then
+            --stage "$stage" --signature "$RUN_SIGNATURE" --jobs "$CHECKPOINT_PARALLEL_JOBS"; then
             echo "=== [$stage] REUSED: validated prior-stage outputs (--from-stage $FROM_STAGE) ==="
+            status=REUSED
         else
+            record_stage_timing "$stage" FAILED_REUSE "$start_utc" "$start_epoch" >/dev/null
             echo "ERROR: cannot reuse invalid or missing prior-stage checkpoint: $stage" >&2
             exit 1
         fi
     elif [[ "$stage" != "cleanup" ]] && ! is_true "$force" && \
-            python3 "$SCRIPT_DIR/scripts/checkpoint.py" check --checkpoint "$checkpoint" --stage "$stage" --signature "$RUN_SIGNATURE"; then
+            python3 "$SCRIPT_DIR/scripts/checkpoint.py" check --checkpoint "$checkpoint" --stage "$stage" \
+                --signature "$RUN_SIGNATURE" --jobs "$CHECKPOINT_PARALLEL_JOBS"; then
         echo "=== [$stage] SKIPPED: valid signature-and-output checkpoint ==="
+        status=SKIPPED
     else
-        echo "=== [$stage] START ==="
-        bash "$command"
-        python3 "$SCRIPT_DIR/scripts/checkpoint.py" write --checkpoint "$checkpoint" --stage "$stage" \
-            --signature "$RUN_SIGNATURE" --outputs "${outputs[@]}"
-        echo "=== [$stage] COMPLETE ==="
+        echo "=== [$stage] START === $start_utc"
+        if ! bash "$command"; then
+            elapsed="$(record_stage_timing "$stage" FAILED "$start_utc" "$start_epoch")"
+            echo "=== [$stage] FAILED === elapsed=${elapsed}s" >&2
+            return 1
+        fi
+        if ! python3 "$SCRIPT_DIR/scripts/checkpoint.py" write --checkpoint "$checkpoint" --stage "$stage" \
+                --signature "$RUN_SIGNATURE" --outputs "${outputs[@]}" --jobs "$CHECKPOINT_PARALLEL_JOBS"; then
+            elapsed="$(record_stage_timing "$stage" FAILED_CHECKPOINT "$start_utc" "$start_epoch")"
+            echo "=== [$stage] FAILED CHECKPOINT === elapsed=${elapsed}s" >&2
+            return 1
+        fi
+        status=COMPLETE
     fi
+    elapsed="$(record_stage_timing "$stage" "$status" "$start_utc" "$start_epoch")"
+    [[ "$status" == "COMPLETE" ]] && echo "=== [$stage] COMPLETE === elapsed=${elapsed}s"
     if [[ "$stage" == "$STOP_AFTER" ]]; then echo "Stopped after $stage"; exit 0; fi
 }
 
@@ -158,13 +187,27 @@ run_stage annotation "$SCRIPT_DIR/scripts/annotate_browser.sh" "$OUTPUT_DIR/07_a
 run_stage report "$SCRIPT_DIR/scripts/report_batch.sh" "$OUTPUT_DIR/10_reports"
 run_stage cleanup "$SCRIPT_DIR/scripts/cleanup.sh" "$OUTPUT_DIR/00_metadata/cleanup_status.tsv" "$OUTPUT_DIR/00_metadata/cleanup_manifest.tsv"
 
+finalize_start_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+finalize_start_epoch="$(date -u +%s)"
+echo "=== [finalize] START === $finalize_start_utc"
 if is_true "$WRITE_FILE_CHECKSUMS"; then
-    python3 "$SCRIPT_DIR/scripts/finalize.py" "$OUTPUT_DIR"
+    if ! python3 "$SCRIPT_DIR/scripts/finalize.py" "$OUTPUT_DIR" --jobs "$CHECKSUM_PARALLEL_JOBS"; then
+        finalize_elapsed="$(record_stage_timing finalize FAILED "$finalize_start_utc" "$finalize_start_epoch")"
+        echo "=== [finalize] FAILED === elapsed=${finalize_elapsed}s" >&2
+        exit 1
+    fi
 else
     printf 'checksums disabled\n' > "$OUTPUT_DIR/00_metadata/final_checksums.sha256"
 fi
-python3 "$SCRIPT_DIR/scripts/checkpoint.py" write --checkpoint "$OUTPUT_DIR/.checkpoints/finalize.json" --stage finalize \
-    --signature "$RUN_SIGNATURE" --outputs "$OUTPUT_DIR/00_metadata/final_checksums.sha256"
+if ! python3 "$SCRIPT_DIR/scripts/checkpoint.py" write --checkpoint "$OUTPUT_DIR/.checkpoints/finalize.json" --stage finalize \
+        --signature "$RUN_SIGNATURE" --outputs "$OUTPUT_DIR/00_metadata/final_checksums.sha256" \
+        --jobs "$CHECKPOINT_PARALLEL_JOBS"; then
+    finalize_elapsed="$(record_stage_timing finalize FAILED_CHECKPOINT "$finalize_start_utc" "$finalize_start_epoch")"
+    echo "=== [finalize] FAILED CHECKPOINT === elapsed=${finalize_elapsed}s" >&2
+    exit 1
+fi
+finalize_elapsed="$(record_stage_timing finalize COMPLETE "$finalize_start_utc" "$finalize_start_epoch")"
+echo "=== [finalize] COMPLETE === elapsed=${finalize_elapsed}s"
 if [[ "$STOP_AFTER" == "finalize" ]]; then echo "Stopped after finalize"; exit 0; fi
 if grep -q '^COMPLETED_WITH_WARNINGS' "$OUTPUT_DIR/05_peaks/per_sample/stage_status.tsv" 2>/dev/null || \
     awk -F '\t' 'NR>1 && $2!="SUCCESS" {found=1} END{exit !found}' \

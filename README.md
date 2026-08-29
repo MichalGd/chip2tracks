@@ -121,6 +121,12 @@ The stable top-level output groups are `00_metadata`, `01_fastq_qc`,
 Restart with `--from-stage NAME`; stop a pilot with `--stop-after NAME`. The
 named stage order is printed by `bash chip2tracks.sh --help`.
 
+Large runs expose separate job limits for alignment/filtering, tracks, peak
+calling, spike-in, and sample-level QC. Preflight records each maximum in
+`00_metadata/resource_budget.tsv`; stage wall times are written to
+`00_metadata/stage_timing.tsv`. See the configuration template before raising
+limits on a shared server.
+
 Priority coverage outputs are enabled in the template:
 
 - `04_tracks/cpm/*.{CPM.bw,CPM.bedGraph}`: configured analysis-fragment/read CPM;

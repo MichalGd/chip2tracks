@@ -40,6 +40,19 @@ for command_name in "${required[@]}"; do
 done
 (( ${#missing[@]} == 0 )) || die "missing required commands: ${missing[*]}"
 
+# command -v only proves that a launcher exists. Execute epic2 during preflight
+# so broken sidecar imports (for example a missing pkg_resources module) stop
+# the run before preprocessing and alignment consume substantial resources.
+if is_true "$needs_epic2"; then
+    epic2_probe_log="${OUTPUT_DIR}/00_metadata/epic2_preflight.log"
+    if ! "$EPIC2_COMMAND" --help >"$epic2_probe_log" 2>&1; then
+        probe_tail="$(tail -n 8 "$epic2_probe_log" | tr '\n' ' ')"
+        die "epic2 executable smoke check failed: $probe_tail"
+    fi
+    grep -q -- '--guess-bampe' "$epic2_probe_log" || \
+        die "epic2 executable does not expose the required --guess-bampe option"
+fi
+
 visible_cpus="$(command -v nproc >/dev/null 2>&1 && nproc || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
 [[ "$visible_cpus" =~ ^[1-9][0-9]*$ ]] || visible_cpus=1
 if [[ "$TOTAL_CPU_BUDGET" == "auto" ]]; then cpu_budget="$visible_cpus"; else cpu_budget="$TOTAL_CPU_BUDGET"; fi
@@ -63,6 +76,8 @@ check_stage_budget alignment "$THREADS_PARALLEL_JOBS" "$alignment_threads"
 check_stage_budget filtering "$THREADS_PARALLEL_JOBS" "$THREADS_SAMTOOLS"
 check_stage_budget cpm "$TRACK_PARALLEL_JOBS" "$THREADS_BAMCOVERAGE"
 check_stage_budget peakcalling "$PEAKCALL_PARALLEL_JOBS" 1
+(( THREADS_SAMTOOLS > THREADS_BAMCOVERAGE )) && qc_threads="$THREADS_SAMTOOLS" || qc_threads="$THREADS_BAMCOVERAGE"
+check_stage_budget qc "$QC_SAMPLE_PARALLEL_JOBS" "$qc_threads"
 if [[ "$SPIKEIN_MODE" != "none" ]]; then check_stage_budget spikein "$SPIKEIN_PARALLEL_JOBS" "$THREADS_BAMCOVERAGE"; fi
 if is_true "$RUN_METAGENE"; then check_stage_budget metagene "$METAGENE_PARALLEL_JOBS" "$METAGENE_THREADS_COMPUTEMATRIX"; fi
 if (( resource_overcommit )) && [[ "$RESOURCE_CHECK_MODE" == "fail" ]]; then

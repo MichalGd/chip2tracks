@@ -6,7 +6,8 @@ source "${SCRIPT_DIR}/lib/common.sh"
 require_config
 run_logged python3 "${SCRIPT_DIR}/generate_report.py" "$OUTPUT_DIR"
 if is_true "$RUN_MULTIQC"; then
-    run_logged bash "${SCRIPT_DIR}/generate_multiqc_report.sh" "$OUTPUT_DIR" "${OUTPUT_DIR}/10_reports"
+    run_logged bash "${SCRIPT_DIR}/generate_multiqc_report.sh" "$OUTPUT_DIR" "${OUTPUT_DIR}/10_reports" \
+        "$MULTIQC_EXPORT_PLOTS"
 else
     printf 'status\treason\nSKIPPED\tRUN_MULTIQC=false\n' > "${OUTPUT_DIR}/10_reports/multiqc_status.tsv"
 fi

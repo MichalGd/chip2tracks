@@ -31,6 +31,12 @@ biological library. This catches run-level adapter and quality problems but does
 not preserve separate post-merge FastQC for each lane. Investigate the original
 sequencing-run QC when a merged report suggests lane-specific failure.
 
+Per-library QC and descriptive TSS profiles are bounded by
+`QC_SAMPLE_PARALLEL_JOBS`; each worker uses at most the larger of
+`THREADS_SAMTOOLS` and `THREADS_BAMCOVERAGE`. Preflight includes that maximum in
+`00_metadata/resource_budget.tsv`, so higher concurrency remains explicit and
+bounded by `TOTAL_CPU_BUDGET`.
+
 ## Library complexity
 
 Complexity metrics use the duplicate-retained q30 BAM. Calculating them after

@@ -46,7 +46,7 @@ while (($#)); do
     case "$1" in --outdir) out="$2"; shift 2 ;; -n) name="$2"; shift 2 ;; *) shift ;; esac
 done
 mkdir -p "$out"
-: > "$out/${name}_peaks.broadPeak"
+printf 'chr1\t10\t90\n' > "$out/${name}_peaks.broadPeak"
 MOCK
 
 cat > "$TMP/bin/mock_epic2" <<'MOCK'
@@ -91,7 +91,7 @@ EOF
 
 PATH="$TMP/bin:$PATH" C2T_CONFIG="$TMP/config.sh" bash "$ROOT/scripts/peakcall_batch.sh"
 grep -q '^COMPLETED_WITH_WARNINGS' "$TMP/output/05_peaks/per_sample/stage_status.tsv"
-awk -F '\t' 'NR==2 {exit !($5=="EMPTY" && $7 ~ /macs3:broad=EMPTY/ && $7 ~ /epic2:broad=ERROR/)}' \
+awk -F '\t' 'NR==2 {exit !($5=="SUCCESS" && $7 ~ /epic2:broad=ERROR/)}' \
     "$TMP/output/05_peaks/per_sample/TARGET.bioR1/peakcall_metadata.tsv"
 
 sed 's/PEAKCALL_FAILURE_POLICY=continue/PEAKCALL_FAILURE_POLICY=fail/' "$TMP/config.sh" > "$TMP/config.strict.sh"
@@ -99,4 +99,21 @@ if PATH="$TMP/bin:$PATH" C2T_CONFIG="$TMP/config.strict.sh" bash "$ROOT/scripts/
     echo "ERROR: strict peak-call policy accepted failed callers" >&2
     exit 1
 fi
-echo "Peak-caller continuation and strict-policy regression tests passed"
+
+cat > "$TMP/bin/mock_macs3" <<'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+out=""; name=""
+while (($#)); do
+    case "$1" in --outdir) out="$2"; shift 2 ;; -n) name="$2"; shift 2 ;; *) shift ;; esac
+done
+mkdir -p "$out"
+: > "$out/${name}_peaks.broadPeak"
+MOCK
+chmod +x "$TMP/bin/mock_macs3"
+if PATH="$TMP/bin:$PATH" C2T_CONFIG="$TMP/config.sh" bash "$ROOT/scripts/peakcall_batch.sh" >/dev/null 2>&1; then
+    echo "ERROR: all-primary-failure run was reported as successful" >&2
+    exit 1
+fi
+grep -q '^FAILED' "$TMP/output/05_peaks/per_sample/stage_status.tsv"
+echo "Peak-caller continuation, strict-policy, and terminal primary-failure tests passed"

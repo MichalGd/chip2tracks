@@ -121,6 +121,30 @@ class ScientificHelperTests(unittest.TestCase):
                 "--stage", "test", "--signature", signature])
             self.assertNotEqual(invalid.returncode, 0)
 
+    def test_parallel_checkpoint_and_final_checksum_are_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            output = directory / "results"
+            metadata = output / "00_metadata"
+            metadata.mkdir(parents=True)
+            for index in range(8):
+                (output / f"file_{index}.txt").write_text(f"value {index}\n", encoding="utf-8")
+            one = subprocess.check_output([
+                sys.executable, str(ROOT / "scripts/checkpoint.py"), "signature",
+                "--jobs", "1", str(output),
+            ], text=True).strip()
+            four = subprocess.check_output([
+                sys.executable, str(ROOT / "scripts/checkpoint.py"), "signature",
+                "--jobs", "4", str(output),
+            ], text=True).strip()
+            self.assertEqual(one, four)
+            subprocess.check_call([
+                sys.executable, str(ROOT / "scripts/finalize.py"), str(output),
+                "--jobs", "4",
+            ])
+            checksum_lines = (metadata / "final_checksums.sha256").read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(checksum_lines), 8)
+
     def test_checkpoint_adopts_valid_prior_stage_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

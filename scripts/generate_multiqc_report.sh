@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${1:?usage: generate_multiqc_report.sh OUTPUT_DIR [REPORT_DIR]}"
 REPORT_DIR="${2:-${OUTPUT_DIR}/10_reports}"
+EXPORT_PLOTS="${3:-false}"
 REPORT_NAME=chip2tracks_multiqc_report
 REPORT_HTML="${REPORT_DIR}/${REPORT_NAME}.html"
 REPORT_LOG="${REPORT_DIR}/multiqc.log"
@@ -15,6 +16,10 @@ REPORT_LOG="${REPORT_DIR}/multiqc.log"
 }
 command -v multiqc >/dev/null 2>&1 || { echo "ERROR: multiqc is not available on PATH" >&2; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 is not available on PATH" >&2; exit 2; }
+[[ "$EXPORT_PLOTS" == "true" || "$EXPORT_PLOTS" == "false" ]] || {
+    echo "ERROR: export-plots argument must be true or false" >&2
+    exit 2
+}
 
 mkdir -p "$REPORT_DIR"
 CUSTOM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/chip2tracks-multiqc.XXXXXX")"
@@ -28,14 +33,15 @@ cp -- "${CUSTOM_DIR}/custom_content_manifest.tsv" \
 # MultiQC 1.35 can reject or merge some native deepTools outputs. The workflow's
 # authoritative deepTools files remain untouched; selected images and metagene
 # tables are supplied through deterministic custom content instead.
-if ! multiqc "$OUTPUT_DIR" "$CUSTOM_DIR" \
-    --outdir "$REPORT_DIR" \
-    --filename "$REPORT_NAME" \
-    --exclude deeptools \
-    --ignore "*/10_reports/*" \
-    --cl-config 'ignore_images: false' \
-    --data-format tsv --export --force \
-    2>&1 | tee "$REPORT_LOG"; then
+multiqc_args=("$OUTPUT_DIR" "$CUSTOM_DIR"
+    --outdir "$REPORT_DIR"
+    --filename "$REPORT_NAME"
+    --exclude deeptools
+    --ignore "*/10_reports/*"
+    --cl-config 'ignore_images: false'
+    --data-format tsv --force)
+[[ "$EXPORT_PLOTS" == "true" ]] && multiqc_args+=(--export)
+if ! multiqc "${multiqc_args[@]}" 2>&1 | tee "$REPORT_LOG"; then
     echo "ERROR: MultiQC failed; inspect $REPORT_LOG" >&2
     exit 1
 fi
@@ -62,6 +68,6 @@ done
 
 custom_items="$(wc -l < "${REPORT_DIR}/multiqc_custom_content_manifest.tsv")"
 custom_items=$(( custom_items > 0 ? custom_items - 1 : 0 ))
-printf 'status\treport\tdata_dir\tcustom_content_items\nSUCCESS\t%s\t%s\t%s\n' \
-    "$REPORT_HTML" "$data_dir" "$custom_items" > "${REPORT_DIR}/multiqc_status.tsv"
+printf 'status\treport\tdata_dir\tcustom_content_items\texport_plots\nSUCCESS\t%s\t%s\t%s\t%s\n' \
+    "$REPORT_HTML" "$data_dir" "$custom_items" "$EXPORT_PLOTS" > "${REPORT_DIR}/multiqc_status.tsv"
 echo "Unified MultiQC report: $REPORT_HTML"

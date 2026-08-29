@@ -66,6 +66,13 @@ of declared outputs. The signature covers the sanitized CSV, resolved config,
 workflow version, scripts, reusable `common/` modules, and reference manifest.
 A changed or missing output invalidates the checkpoint.
 
+`00_metadata/stage_timing.tsv` records UTC start/end timestamps and elapsed
+seconds for completed, skipped, reused, and failed stages in the current
+invocation. `CHECKPOINT_PARALLEL_JOBS` controls hash-validation concurrency;
+`CHECKSUM_PARALLEL_JOBS` controls optional terminal checksum generation. The
+timing table is intentionally excluded from `final_checksums.sha256` because
+its final row is written after checksum generation finishes.
+
 Run `--plan` to validate the metadata model and inspect
 `00_metadata/planned_stages.tsv` without checking files/tools. Run
 `--preflight-only` for the complete input, tool, and reference audit.
@@ -134,6 +141,10 @@ Bowtie2, Picard, samtools, and preseq outputs plus ChIP-specific custom-content
 tables and selected QC plots. Native deepTools parsing is excluded because it
 is unreliable for some MultiQC 1.35 tables; original deepTools files are kept,
 and selected plots plus the metagene summary are supplied as custom content.
+
+`MULTIQC_EXPORT_PLOTS=false` is recommended for routine server runs. The HTML
+report remains complete, but MultiQC avoids exporting every plot to extra
+PNG/SVG/PDF files. Enable it only when those static assets are required.
 
 Reports can be recovered from a completed output directory without rerunning
 alignment, filtering, peak calling, normalization, or differential models:

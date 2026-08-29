@@ -45,6 +45,9 @@ RUN_FASTQC=true
 RUN_MULTIQC=true
 # RUN_MULTIQC controls both the preprocessing FastQC summary and the final
 # unified report over retained workflow logs, QC tables, and custom content.
+# Plot export creates extra PNG/SVG/PDF files and can be slow for large runs.
+# The interactive HTML report remains complete when this is false.
+MULTIQC_EXPORT_PLOTS=false
 THREADS_FASTQC=10
 THREADS_TRIMGALORE=8
 
@@ -231,3 +234,6 @@ UCSC_TRACK_PREFIX=CHIP
 WRITE_IGV_SESSION=true
 WRITE_COMMAND_LOG=true
 WRITE_FILE_CHECKSUMS=true
+# Parallel hashing improves checkpoint validation and optional final checksums.
+CHECKPOINT_PARALLEL_JOBS=4
+CHECKSUM_PARALLEL_JOBS=4
