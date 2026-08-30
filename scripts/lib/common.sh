@@ -9,6 +9,15 @@ require_config() {
     [[ -n "${C2T_CONFIG:-}" && -f "$C2T_CONFIG" ]] || die "C2T_CONFIG is not a readable file"
     # shellcheck disable=SC1090
     source "$C2T_CONFIG"
+    # Stage scripts may be invoked directly during recovery from a v0.1
+    # resolved config. The entry point writes these values explicitly, while
+    # direct legacy invocations retain conservative fallbacks.
+    MERGE_PARALLEL_JOBS="${MERGE_PARALLEL_JOBS:-2}"
+    NORMALIZED_TRACK_PARALLEL_JOBS="${NORMALIZED_TRACK_PARALLEL_JOBS:-2}"
+    DIFFERENTIAL_PARALLEL_JOBS="${DIFFERENTIAL_PARALLEL_JOBS:-2}"
+    ANNOTATION_PARALLEL_JOBS="${ANNOTATION_PARALLEL_JOBS:-2}"
+    RUN_FASTQC_PER_TECHNICAL_UNIT="${RUN_FASTQC_PER_TECHNICAL_UNIT:-false}"
+    RUN_FEATURE_ANNOTATION_SUMMARY="${RUN_FEATURE_ANNOTATION_SUMMARY:-false}"
     : "${OUTPUT_DIR:?OUTPUT_DIR missing}"
     SAMPLE_MANIFEST="${OUTPUT_DIR}/00_metadata/sample_manifest.tsv"
     COHORT_MANIFEST="${OUTPUT_DIR}/00_metadata/cohort_manifest.tsv"
@@ -110,6 +119,17 @@ record_command() {
 }
 
 run_logged() {
+    local quoted=() argument command_text command_id start_utc start_epoch end_utc end_epoch status elapsed
+    for argument in "$@"; do quoted+=("$(printf '%q' "$argument")"); done
+    command_text="${quoted[*]}"
+    command_id="$(date -u +%s).${BASHPID}.${RANDOM}"
+    start_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; start_epoch="$(date -u +%s)"
     record_command "$@"
-    "$@"
+    if "$@"; then status=0; else status=$?; fi
+    end_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; end_epoch="$(date -u +%s)"; elapsed=$((end_epoch-start_epoch))
+    if is_true "${WRITE_COMMAND_LOG:-true}"; then
+        printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$command_id" "$start_utc" "$end_utc" "$elapsed" "$status" "$command_text" \
+            >> "${OUTPUT_DIR}/00_metadata/command_events.tsv"
+    fi
+    return "$status"
 }

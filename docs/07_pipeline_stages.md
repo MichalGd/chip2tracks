@@ -15,7 +15,7 @@ values for `--from-stage` and `--stop-after`.
 | 4 | `filtering` | Mark duplicates once; apply primary/canonical/blacklist and MAPQ filters; expose permissive, intermediate, q30 duplicate-retained, and stringent BAM branches | `03_alignment/analysis/`, `03_alignment/filtered/` |
 | 5 | `cpm` | Create analysis, permissive, intermediate and stringent fragment/read CPM bedGraph/bigWig tracks and normalization metadata | `04_tracks/cpm/` |
 | 6 | `peakcalling` | Run layout-aware MACS3 and broad-domain epic2, plus control/local-lambda fold-enrichment tracks; record per-sample/caller status | `05_peaks/per_sample/` |
-| 7 | `reproducibility` | Build the default biological-support consensus; optionally run supplementary pairwise IDR for narrow MACS3 cohorts when `RUN_IDR=true` | `05_peaks/consensus/`, `05_peaks/reproducibility/status.tsv` |
+| 7 | `consensus` | Build the default biological-support consensus; optionally run supplementary pairwise IDR for narrow MACS3 cohorts when `RUN_IDR=true` (`reproducibility` remains a temporary CLI alias) | `05_peaks/consensus/`, `05_peaks/reproducibility/status.tsv` |
 | 8 | `spikein` | Count retained spike observations, enforce QC thresholds, and create calibrated host plus spike-control tracks when enabled | `04_tracks/spikein/` |
 | 9 | `normalized_tracks` | Build consensus count tables and the enabled DESeq2-consensus and robust-CPM coverage families | `04_tracks/` |
 | 10 | `metagene` | Select upstream-normalized tracks and optionally render TSS, TES, and scaled-gene-body profile/heatmap pairs | `06_qc/metagene/status.tsv` |

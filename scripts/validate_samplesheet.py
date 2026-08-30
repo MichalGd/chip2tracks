@@ -16,7 +16,7 @@ COLUMNS = [
     "sample_id", "fastq_1", "fastq_2", "layout", "genome",
     "assay_profile", "factor", "antibody_id", "target_class", "condition",
     "treatment", "cell_type", "replicate", "tech_replicate", "is_control",
-    "control_type", "control_id", "analysis_duplicate_policy", "blacklist",
+    "control_type", "control_id", "analysis_duplicate_policy",
     "spikein_to_host_ratio", "spikein_stage", "spikein_lot", "batch",
     "donor", "output_prefix",
 ]
@@ -54,12 +54,23 @@ def checked_id(value: str, field: str, row_number: int) -> str:
 
 
 def cohort_identity(row: dict[str, str], primary_caller: str, primary_class: str,
-                    spike_mode: str, spike_reference: str) -> tuple[str, ...]:
-    identity = (
-        row["genome"], row["assay_profile"], row["factor"], row["antibody_id"],
-        row["layout"], row["target_class"], row["analysis_duplicate_policy"],
-        primary_caller, primary_class,
+                    spike_mode: str, spike_reference: str,
+                    cohort_mode: str) -> tuple[str, ...]:
+    hard_compatibility = (
+        "global", row["genome"], row["assay_profile"], row["layout"], row["target_class"],
+        row["analysis_duplicate_policy"], primary_caller, primary_class,
     )
+    if cohort_mode == "automatic":
+        identity = (
+            row["genome"], row["assay_profile"], row["factor"], row["antibody_id"],
+            row["layout"], row["target_class"], row["analysis_duplicate_policy"],
+            primary_caller, primary_class,
+        )
+    else:
+        # Factor and antibody are intentionally omitted only when the researcher
+        # explicitly requests a shared peak universe. Technical and analytical
+        # compatibility dimensions remain mandatory.
+        identity = hard_compatibility
     if spike_mode != "none":
         identity += (spike_mode, spike_reference, row["spikein_stage"], row["spikein_lot"])
     return identity
@@ -110,11 +121,17 @@ def write_tsv(path: Path, fieldnames: list[str], rows: list[dict[str, object]]) 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("samplesheet", type=Path)
-    parser.add_argument("--assay-profile", choices=["chipseq", "chipmentation"], required=True)
+    parser.add_argument(
+        "--cohort-mode", choices=["automatic", "global-compatible"],
+        default="automatic",
+        help=("automatic keeps factor/antibody-specific cohorts; global-compatible "
+              "ignores factor/antibody but retains hard analysis compatibility"),
+    )
     parser.add_argument("--spikein-mode", choices=["none", "dm6", "ecoli", "custom"], required=True)
     parser.add_argument("--spikein-reference-id", default="")
     parser.add_argument("--peak-callers", default="macs3,epic2")
     parser.add_argument("--primary-peak-caller", choices=["auto", "macs3", "epic2"], default="auto")
+    parser.add_argument("--blacklist-map", action="append", default=[], metavar="GENOME=PATH")
     parser.add_argument("--allow-shared-controls", action="store_true")
     parser.add_argument("--allow-mixed-layouts", action="store_true")
     parser.add_argument("--allow-mixed-genomes", action="store_true")
@@ -122,6 +139,17 @@ def main() -> int:
     parser.add_argument("--check-files", action="store_true")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
+
+    blacklist_map: dict[str, str] = {}
+    try:
+        for item in args.blacklist_map:
+            genome, separator, path = item.partition("=")
+            if not separator or not genome or not path:
+                raise ValueError(f"invalid --blacklist-map value: {item!r}; expected GENOME=PATH")
+            blacklist_map[genome] = path
+    except ValueError as exc:
+        print(f"SAMPLESHEET ERROR: {exc}", file=sys.stderr)
+        return 1
 
     errors: list[str] = []
     try:
@@ -164,9 +192,9 @@ def main() -> int:
             if layout not in {"PE", "SE"}:
                 raise ValueError(f"row {number}: layout must be PE or SE")
             row["layout"] = layout
-            if row["assay_profile"].lower() != args.assay_profile:
-                raise ValueError(f"row {number}: assay_profile does not match run profile")
             row["assay_profile"] = row["assay_profile"].lower()
+            if row["assay_profile"] not in {"chipseq", "chipmentation"}:
+                raise ValueError(f"row {number}: assay_profile must be chipseq or chipmentation")
             if not row["genome"]:
                 raise ValueError(f"row {number}: genome is empty")
             if not row["fastq_1"]:
@@ -192,8 +220,11 @@ def main() -> int:
                     raise ValueError(f"row {number}: target needs narrow/broad/mixed class and control_type=none")
                 if not row["control_id"] and not args.allow_control_free:
                     raise ValueError(f"row {number}: target requires control_id")
+            row["blacklist"] = blacklist_map.get(row["genome"], "")
             if not row["blacklist"]:
-                raise ValueError(f"row {number}: blacklist is required")
+                raise ValueError(
+                    f"row {number}: no configured blacklist reference for genome {row['genome']}"
+                )
             if any("\t" in value or ";" in value for value in row.values()):
                 raise ValueError(f"row {number}: tabs and semicolons are not allowed in fields")
             if args.spikein_mode == "none":
@@ -272,7 +303,7 @@ def main() -> int:
         row["fastq_1_list"] = ";".join(member["fastq_1"] for member in sorted(members, key=lambda x: int(x["tech_replicate"])))
         row["fastq_2_list"] = ";".join(member["fastq_2"] for member in sorted(members, key=lambda x: int(x["tech_replicate"])) if member["fastq_2"])
         row["technical_units"] = len(members)
-        row["control_key"] = ""
+        row["control_key"] = "."
         row["cohort_id"] = ""
         row["cohort_key"] = ""
         row["primary_peak_caller"] = "none"
@@ -282,7 +313,10 @@ def main() -> int:
                 caller, peak_class = resolve_primary(row, args.primary_peak_caller, callers)
                 row["primary_peak_caller"] = caller
                 row["primary_peak_class"] = peak_class
-                identity = cohort_identity(row, caller, peak_class, args.spikein_mode, args.spikein_reference_id)
+                identity = cohort_identity(
+                    row, caller, peak_class, args.spikein_mode,
+                    args.spikein_reference_id, args.cohort_mode,
+                )
                 row["cohort_key"] = "|".join(identity)
                 row["cohort_id"] = cohort_slug(identity)
             except ValueError as exc:
@@ -321,21 +355,12 @@ def main() -> int:
                     f"control {control_key} is assigned to multiple targets ({','.join(users)}); "
                     "set ALLOW_SHARED_CONTROLS=true after confirming compatibility"
                 )
+    if not any(row["is_control"] == "FALSE" for row in biological_rows):
+        errors.append("samplesheet contains no target biological libraries")
 
     if errors:
         for error in errors:
             print(f"SAMPLESHEET ERROR: {error}", file=sys.stderr)
-        return 1
-
-    target_universes = {
-        str(row["cohort_key"]) for row in biological_rows if row["is_control"] == "FALSE"
-    }
-    if len(target_universes) > 1:
-        print(
-            "SAMPLESHEET ERROR: v0.1 permits one compatible target/peak universe per samplesheet; "
-            "use separate runs for different factors, antibodies, layouts, target classes, or analysis policies",
-            file=sys.stderr,
-        )
         return 1
 
     manifest_fields = [
@@ -358,13 +383,15 @@ def main() -> int:
     for cohort_id, members in sorted(by_cohort.items()):
         first = members[0]
         conditions = list(dict.fromkeys(str(member["condition"]) for member in members))
+        factors = list(dict.fromkeys(str(member["factor"]) for member in members))
+        antibodies = list(dict.fromkeys(str(member["antibody_id"]) for member in members))
         cohort_rows.append({
             "cohort_id": cohort_id,
             "cohort_key": first["cohort_key"],
             "genome": first["genome"],
             "assay_profile": first["assay_profile"],
-            "factor": first["factor"],
-            "antibody_id": first["antibody_id"],
+            "factor": factors[0] if len(factors) == 1 else "MULTIPLE",
+            "antibody_id": antibodies[0] if len(antibodies) == 1 else "MULTIPLE",
             "layout": first["layout"],
             "target_class": first["target_class"],
             "analysis_duplicate_policy": first["analysis_duplicate_policy"],
@@ -381,6 +408,74 @@ def main() -> int:
         "sample_keys", "conditions",
     ]
     write_tsv(args.output_dir / "cohort_manifest.tsv", cohort_fields, cohort_rows)
+    biological_by_key = {str(row["sample_key"]): row for row in biological_rows}
+    membership_rows: list[dict[str, object]] = []
+    for row in target_rows:
+        membership_rows.append({
+            "cohort_id": row["cohort_id"], "sample_key": row["sample_key"],
+            "role": "target", "factor": row["factor"],
+            "antibody_id": row["antibody_id"], "condition": row["condition"],
+            "replicate": row["replicate"], "control_key": row["control_key"],
+            "control_reused_by_targets": ".",
+        })
+    for control_key, users in sorted(control_users.items()):
+        control = biological_by_key.get(control_key)
+        membership_rows.append({
+            "cohort_id": ",".join(sorted({
+                str(biological_by_key[user]["cohort_id"]) for user in users
+            })),
+            "sample_key": control_key, "role": "control",
+            "factor": control["factor"] if control else ".",
+            "antibody_id": control["antibody_id"] if control else ".",
+            "condition": control["condition"] if control else ".",
+            "replicate": control["replicate"] if control else ".",
+            "control_key": ".", "control_reused_by_targets": ",".join(users),
+        })
+    write_tsv(args.output_dir / "cohort_membership.tsv", [
+        "cohort_id", "sample_key", "role", "factor", "antibody_id",
+        "condition", "replicate", "control_key", "control_reused_by_targets",
+    ], membership_rows)
+    write_tsv(args.output_dir / "cohort_policy.tsv", [
+        "cohort_mode", "factor_antibody_in_identity", "hard_compatibility_dimensions",
+    ], [{
+        "cohort_mode": args.cohort_mode,
+        "factor_antibody_in_identity": "TRUE" if args.cohort_mode == "automatic" else "FALSE",
+        "hard_compatibility_dimensions": (
+            "genome,assay_profile,layout,target_class,analysis_duplicate_policy,"
+            "primary_peak_caller,primary_peak_class,spikein_policy"
+        ),
+    }])
+    control_free_targets = [
+        str(row["sample_key"]) for row in target_rows
+        if str(row["control_key"]) in {"", "."}
+    ]
+    write_tsv(args.output_dir / "control_policy.tsv", [
+        "allow_control_free_peakcall", "allow_shared_controls",
+        "control_free_target_count", "control_free_targets",
+    ], [{
+        "allow_control_free_peakcall": str(args.allow_control_free).upper(),
+        "allow_shared_controls": str(args.allow_shared_controls).upper(),
+        "control_free_target_count": len(control_free_targets),
+        "control_free_targets": ",".join(control_free_targets),
+    }])
+    if control_free_targets:
+        print(
+            "SAMPLESHEET WARNING: control-free peak calling explicitly enabled for "
+            f"{len(control_free_targets)} target(s): {','.join(control_free_targets)}",
+            file=sys.stderr,
+        )
+    if args.cohort_mode == "global-compatible":
+        mixed = [
+            str(row["cohort_id"]) for row in cohort_rows
+            if row["factor"] == "MULTIPLE" or row["antibody_id"] == "MULTIPLE"
+        ]
+        if mixed:
+            print(
+                "SAMPLESHEET WARNING: global-compatible cohorting combined different "
+                f"factors/antibodies in {len(mixed)} cohort(s); this defines a shared "
+                "technical peak universe and does not imply biological equivalence",
+                file=sys.stderr,
+            )
     print(
         f"Validated {len(raw_rows)} sequencing units, {len(biological_rows)} biological libraries, "
         f"and {len(cohort_rows)} target cohorts"

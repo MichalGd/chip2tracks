@@ -1,13 +1,16 @@
-# chip2tracks 0.1.0 configuration
+# chip2tracks 0.2.0 configuration
 # Plain KEY=VALUE syntax only. Shell expressions and command substitutions are rejected.
 
 # Required run inputs
 SAMPLESHEET=/absolute/path/to/samplesheet.csv
 OUTPUT_DIR=/absolute/path/to/results
-ASSAY_PROFILE=chipseq
 RUN_ID=auto
 ALLOW_MIXED_LAYOUTS=false
 ALLOW_MIXED_GENOMES=false
+# automatic: factor- and antibody-specific peak universes (recommended).
+# global-compatible: researcher-authorized shared universe across factors and
+# antibodies, while retaining genome/assay/layout/caller/class compatibility.
+COHORT_MODE=automatic
 
 # Host references. Add the same reference-key set for other assemblies.
 INDEX_HG38=/opt/bioinformatics/references/hg38/bowtie2/hg38
@@ -42,6 +45,7 @@ ADAPTER_AUTO_DETECTION_REQUIRED=false
 TRIMGALORE_EXTRA_ARGS=
 MIN_TRIMMED_LENGTH=20
 RUN_FASTQC=true
+RUN_FASTQC_PER_TECHNICAL_UNIT=true
 RUN_MULTIQC=true
 # RUN_MULTIQC controls both the preprocessing FastQC summary and the final
 # unified report over retained workflow logs, QC tables, and custom content.
@@ -77,8 +81,9 @@ PICARD_COMMAND=picard
 # Peak calling
 PEAK_CALLERS=macs3,epic2
 PRIMARY_PEAK_CALLER=auto
-ALLOW_SHARED_CONTROLS=true
-ALLOW_CONTROL_FREE_PEAKCALL=true
+# Conservative defaults. Relax only when the experimental design justifies it.
+ALLOW_SHARED_CONTROLS=false
+ALLOW_CONTROL_FREE_PEAKCALL=false
 ALLOW_EMPTY_PEAKS=false
 # fail: any enabled caller error stops peak calling; continue: record the
 # per-sample error and continue with unaffected samples and cohorts.
@@ -207,6 +212,13 @@ RUN_TARGET_CONTROL_INTERACTION=false
 # Annotation
 RUN_SIMPLE_PEAK_ANNOTATION=true
 RUN_CCRE_ANNOTATION=true
+RUN_FEATURE_ANNOTATION_SUMMARY=true
+PEAK_ANNOTATION_PROMOTER_UPSTREAM=2000
+PEAK_ANNOTATION_PROMOTER_DOWNSTREAM=500
+PEAK_ANNOTATION_GENE_END_WINDOW=2000
+PEAK_ANNOTATION_FEATURE_PRECEDENCE=promoter,enhancer,exon,intron,gene_end,other_regulatory,intergenic,unclassified
+PEAK_ANNOTATION_PLOT_FORMATS=png,pdf,svg
+PEAK_ANNOTATION_INCLUDE_CONSENSUS=true
 RUN_MOTIF_ENRICHMENT=false
 
 # Bounded resources
@@ -218,7 +230,11 @@ THREADS_PARALLEL_JOBS=8
 QC_SAMPLE_PARALLEL_JOBS=4
 TRACK_PARALLEL_JOBS=2
 PEAKCALL_PARALLEL_JOBS=2
+MERGE_PARALLEL_JOBS=2
 SPIKEIN_PARALLEL_JOBS=2
+NORMALIZED_TRACK_PARALLEL_JOBS=2
+DIFFERENTIAL_PARALLEL_JOBS=2
+ANNOTATION_PARALLEL_JOBS=2
 
 # Recovery and cleanup
 ENABLE_AUTOMATIC_CLEANUP=false
@@ -237,6 +253,8 @@ UCSC_BIGDATA_URL_BASE=
 UCSC_TRACK_PREFIX=CHIP
 WRITE_IGV_SESSION=true
 WRITE_COMMAND_LOG=true
+WRITE_STRUCTURED_LOG=true
+WRITE_CONSOLE_LOG=true
 WRITE_FILE_CHECKSUMS=true
 # Parallel hashing improves checkpoint validation and optional final checksums.
 CHECKPOINT_PARALLEL_JOBS=4

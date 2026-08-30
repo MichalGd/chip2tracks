@@ -1,21 +1,22 @@
 # chip2tracks
 
 `chip2tracks` is a restartable, samplesheet-driven Bash workflow for two
-explicit assay profiles: conventional ChIP-seq and ChIPmentation. Version 0.1.0
+explicit assay profiles: conventional ChIP-seq and ChIPmentation. Version 0.2.0
 is derived from the local `cutnrun2tracks` 0.2.8 execution engine but removes
 CUT&RUN/CUT&Tag-specific peak and fragment assumptions.
 
-The workflow is under active validation. Do not use v0.1.0 pilot output as the
+The workflow is under active validation. Do not use pilot output as the
 sole basis for publication or clinical decisions until it passes representative
 local ChIP-seq and ChIPmentation datasets.
 
 ## Analysis contract
 
-- `ASSAY_PROFILE=chipseq` or `ASSAY_PROFILE=chipmentation`; profiles cannot be
-  mixed within one run.
-- One samplesheet defines one compatible target/antibody and narrow-or-broad
-  peak universe. Conditions, biological replicates, technical replicates, and
-  compatible shared controls may coexist; different targets use separate runs.
+- Assay profile is declared per samplesheet row. ChIP-seq and ChIPmentation may
+  coexist in one run but remain in technically compatible, assay-specific cohorts.
+- `COHORT_MODE=automatic` isolates factor/antibody peak universes. An explicit
+  `global-compatible` mode lets the researcher build a shared consensus across
+  different factors/antibodies while retaining genome, assay, layout, caller,
+  peak-class, duplicate-policy and spike-in boundaries.
 - PE and SE libraries are supported. MACS3 uses real fragments with `BAMPE` for
   PE and its fragment model for SE unless a fixed extension is explicitly set.
   Coverage uses PE fragments; SE coverage defaults to a MACS3 `predictd`
@@ -26,7 +27,8 @@ local ChIP-seq and ChIPmentation datasets.
   available. A kit name is therefore not mandatory for common adapters, but it
   remains important provenance and is required when auto-detection is
   unresolved or the library uses custom/partial adapters.
-- Matched input/IgG/mock controls are optional. When absent, outputs are marked
+- Matched input/IgG/mock controls are required by the template default. An
+  explicit `ALLOW_CONTROL_FREE_PEAKCALL=true` opt-in permits control-free calls; outputs are marked
   as control-free and control-normalized biological interpretation is not
   implied. This permits exploratory/local datasets but does not override
   publication standards that expect matched input controls.
@@ -44,9 +46,9 @@ local ChIP-seq and ChIPmentation datasets.
   an interval must be supported by peaks from at least two distinct biological
   sample keys. It is used for counting, normalized tracks, QC, annotation, and
   differential analysis. Pairwise true-replicate IDR is supplementary and
-  disabled by default (`RUN_IDR=false`). Full pooled/pseudoreplicate IDR is a
-  documented v0.2 extension.
-- UMI-aware processing is deliberately rejected in v0.1 rather than silently
+  disabled by default (`RUN_IDR=false`). Full pooled/pseudoreplicate IDR remains
+  a separately validated future extension.
+- UMI-aware processing is deliberately rejected rather than silently
   mishandled.
 
 ## Quick start
@@ -56,10 +58,11 @@ git clone https://github.com/MichalGd/chip2tracks.git
 cd chip2tracks
 cp config/config.conf.template config.conf
 cp config/examples/chipseq_pe.csv samplesheet.csv
-# Edit every path and reference value in both files.
-bash chip2tracks.sh --config "$PWD/config.conf" --samplesheet "$PWD/samplesheet.csv" --plan
-bash chip2tracks.sh --config "$PWD/config.conf" --samplesheet "$PWD/samplesheet.csv" --preflight-only
-bash chip2tracks.sh --config "$PWD/config.conf" --samplesheet "$PWD/samplesheet.csv"
+# Edit config.conf (including SAMPLESHEET) and the samplesheet metadata/FASTQs.
+bash chip2tracks.sh --version
+bash chip2tracks.sh --config "$PWD/config.conf" --plan
+bash chip2tracks.sh --config "$PWD/config.conf" --preflight-only
+bash chip2tracks.sh --config "$PWD/config.conf"
 ```
 
 Reuse the server's installed tools first. Run the supplied read-only audit if
@@ -81,7 +84,7 @@ Use `config/examples/chipmentation_pe.csv` for the second assay profile. Spike-i
 is disabled by default. To enable the laboratory dm6 protocol, set
 `SPIKEIN_MODE=dm6`, fill the reference settings, and populate all three
 sample-sheet spike-in fields. To run without a control, leave `control_id`
-empty; `ALLOW_CONTROL_FREE_PEAKCALL=true` is already the default.
+empty and deliberately set `ALLOW_CONTROL_FREE_PEAKCALL=true`.
 
 ## Stages and main outputs
 
@@ -128,7 +131,8 @@ Restart with `--from-stage NAME`; stop a pilot with `--stop-after NAME`. The
 named stage order is printed by `bash chip2tracks.sh --help`.
 
 Large runs expose separate job limits for alignment/filtering, tracks, peak
-calling, spike-in, and sample-level QC. Preflight records each maximum in
+calling, consensus/IDR, normalized tracks, differential cohorts, annotation,
+spike-in, and sample-level QC. Preflight records each maximum in
 `00_metadata/resource_budget.tsv`; stage wall times are written to
 `00_metadata/stage_timing.tsv`. See the configuration template before raising
 limits on a shared server.
@@ -152,6 +156,9 @@ the total signal observations, MAPQ 0 and MAPQ <30 observations, and Bowtie2
 bigWig files made from that policy because those formats are two
 representations of the same filtered signal. The table is copied to
 `10_reports/coverage_mapping_composition.tsv` and shown in both final reports.
+The reports also retain `qc_module_summary.tsv`, compact fragment-length and
+NSC/RSC summaries, and `track_inventory.tsv` so configured QC execution and
+every generated bedGraph/bigWig family are auditable without parsing filenames.
 
 Differential occupancy is summarized across all primary and sensitivity
 variants in `10_reports/differential_occupancy_summary.tsv`. Disabled, skipped,

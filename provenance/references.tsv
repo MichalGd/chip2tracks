@@ -1,4 +1,6 @@
 component	version_or_release	source
+cutnrun2tracks operational interface	0.3.1 (5c55e8fdbb2d386a90451f112a44baac95b60c7e)	https://github.com/MichalGd/cutnrun2tracks/commit/5c55e8fdbb2d386a90451f112a44baac95b60c7e
+cutnrun2tracks peak-feature annotation	0.3.1 (5c55e8fdbb2d386a90451f112a44baac95b60c7e)	https://github.com/MichalGd/cutnrun2tracks/blob/5c55e8fdbb2d386a90451f112a44baac95b60c7e/scripts/summarize_peak_annotations.py
 ATACseq2tracks consensus	3.2.0	https://github.com/MichalGd/ATACseq2tracks#consensus-peaks
 Bowtie2	2.5.5	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml
 MACS3	3.0.4	https://macs3-project.github.io/MACS/docs/callpeak.html

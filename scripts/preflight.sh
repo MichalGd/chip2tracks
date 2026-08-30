@@ -70,16 +70,20 @@ check_stage_budget() {
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$stage" "$jobs" "$threads" "$requested" "$cpu_budget" "$status" >> "$resource_table"
 }
 (( THREADS_FASTQC > THREADS_TRIMGALORE )) && preprocess_threads="$THREADS_FASTQC" || preprocess_threads="$THREADS_TRIMGALORE"
-(( THREADS_BOWTIE2 > THREADS_SAMTOOLS )) && alignment_threads="$THREADS_BOWTIE2" || alignment_threads="$THREADS_SAMTOOLS"
+alignment_threads=$((THREADS_BOWTIE2 + THREADS_SAMTOOLS))
 check_stage_budget preprocess "$QC_SAMPLE_PARALLEL_JOBS" "$preprocess_threads"
 check_stage_budget alignment "$THREADS_PARALLEL_JOBS" "$alignment_threads"
 check_stage_budget filtering "$THREADS_PARALLEL_JOBS" "$THREADS_SAMTOOLS"
 check_stage_budget cpm "$TRACK_PARALLEL_JOBS" "$THREADS_BAMCOVERAGE"
 check_stage_budget peakcalling "$PEAKCALL_PARALLEL_JOBS" 1
+check_stage_budget consensus "$MERGE_PARALLEL_JOBS" 1
 (( THREADS_SAMTOOLS > THREADS_BAMCOVERAGE )) && qc_threads="$THREADS_SAMTOOLS" || qc_threads="$THREADS_BAMCOVERAGE"
 check_stage_budget qc "$QC_SAMPLE_PARALLEL_JOBS" "$qc_threads"
 if [[ "$SPIKEIN_MODE" != "none" ]]; then check_stage_budget spikein "$SPIKEIN_PARALLEL_JOBS" "$THREADS_BAMCOVERAGE"; fi
 if is_true "$RUN_METAGENE"; then check_stage_budget metagene "$METAGENE_PARALLEL_JOBS" "$METAGENE_THREADS_COMPUTEMATRIX"; fi
+check_stage_budget normalized_tracks "$NORMALIZED_TRACK_PARALLEL_JOBS" "$THREADS_BAMCOVERAGE"
+check_stage_budget differential "$DIFFERENTIAL_PARALLEL_JOBS" 1
+check_stage_budget annotation "$ANNOTATION_PARALLEL_JOBS" 1
 if (( resource_overcommit )) && [[ "$RESOURCE_CHECK_MODE" == "fail" ]]; then
     die "configured parallelism exceeds TOTAL_CPU_BUDGET; adjust job/thread settings or use RESOURCE_CHECK_MODE=warn"
 fi
@@ -87,6 +91,9 @@ fi
 if is_true "$RUN_METAGENE"; then
     [[ -s "$METAGENE_GENE_SET_MANIFEST" ]] || die "metagene gene-set manifest missing: $METAGENE_GENE_SET_MANIFEST"
     python3 -c 'import pyBigWig' || die "RUN_METAGENE requires the pyBigWig Python package"
+fi
+if is_true "$RUN_FEATURE_ANNOTATION_SUMMARY"; then
+    python3 -c 'import matplotlib' || die "RUN_FEATURE_ANNOTATION_SUMMARY requires matplotlib"
 fi
 
 mkdir -p "${OUTPUT_DIR}/00_metadata"
@@ -134,6 +141,7 @@ if [[ "$SPIKEIN_MODE" != "none" ]]; then
     fi
 fi
 
-printf 'status\tprofile\tspikein_mode\tpeak_callers\nSUCCESS\t%s\t%s\t%s\n' \
-    "$ASSAY_PROFILE" "$SPIKEIN_MODE" "$PEAK_CALLERS" > "${OUTPUT_DIR}/00_metadata/preflight_status.tsv"
+profiles="$(awk -F '\t' 'NR>1 {seen[$6]=1} END {for (value in seen) print value}' "$SAMPLE_MANIFEST" | LC_ALL=C sort | paste -sd, -)"
+printf 'status\tprofiles\tspikein_mode\tpeak_callers\tcpu_budget\nSUCCESS\t%s\t%s\t%s\t%s\n' \
+    "$profiles" "$SPIKEIN_MODE" "$PEAK_CALLERS" "$cpu_budget" > "${OUTPUT_DIR}/00_metadata/preflight_status.tsv"
 note "Preflight successful"

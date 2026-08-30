@@ -25,13 +25,16 @@ summary, and principal output tree.
 | CPM, DESeq2 consensus, robust-CPM, spike-in, fold-enrichment, bedGraph/bigWig, and multimapper reporting | [Genomic coverage tracks and normalization](12_tracks_and_normalization.md) |
 | Biological versus technical replicates, shared controls, consensus, IDR, blocks, and contrast direction | [Replicates, controls, and experimental design](13_replicates_and_design.md) |
 | Inputs, models, outputs, statuses, and interpretation for all four differential variants | [Differential occupancy analysis](14_differential_occupancy.md) |
-| Implemented nearest-gene/cCRE annotations and explicit v0.1 boundaries | [Peak and differential-result annotation](15_annotation.md) |
+| Comprehensive feature/cCRE annotations, composition summaries, differential propagation, and interpretation limits | [Peak and differential-result annotation](15_annotation.md) |
 
 ## Operate and validate the workflow
 
 | Topic | Document |
 |---|---|
 | Output organization, checkpoint recovery, partial reruns, and guarded cleanup | [Outputs and recovery](04_outputs_and_recovery.md) |
+| Five-minute triage, stage diagnostics, safe restart points, and support bundle | [Troubleshooting and safe recovery](16_troubleshooting.md) |
+| Immutable releases, environments, launchers, promotion, rollback, and large-node profile | [Shared-server installation and promotion](17_server_installation.md) |
+| Samplesheet/config changes, compatibility defaults, and recovery from 0.1 | [Migration from 0.1 to 0.2](18_migration_0.1_to_0.2.md) |
 | Scientific limitations and real-data pilot decisions | [Limitations and pilot decisions](05_limitations.md) |
 | Synthetic coverage and outstanding Linux/real-data fixtures | [Test matrix](06_test_matrix.md) |
 
@@ -42,6 +45,6 @@ summary, and principal output tree.
 - [Metagene shared-module interface](../common/metagene/README.md)
 - [Implementation and release plan](09_implementation_and_release.md)
 
-Documentation describes `chip2tracks` 0.1.0 unless a page explicitly says otherwise.
+Documentation describes `chip2tracks` 0.2.0 unless a page explicitly says otherwise.
 The executable behavior is defined by `chip2tracks.sh`, the scripts under
 `scripts/`, and the validated configuration template.

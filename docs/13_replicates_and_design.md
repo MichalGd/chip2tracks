@@ -32,23 +32,24 @@ Do not merge biological BAMs before statistical analysis. A pooled browser
 track can be useful for presentation, but v0.1 does not create pooled-condition
 tracks and such a file must not be presented as an independent replicate.
 
-## One samplesheet, one target universe
+## Multiple cohorts and researcher-defined shared universes
 
-Version 0.1 permits one compatible target/antibody and peak universe per
-samplesheet. Target rows must agree on genome, assay profile, factor, antibody,
-layout, target class, analysis duplicate policy, primary caller, and primary
-peak class. Spike mode/reference/stage/lot also participate in the cohort
-identity when calibration is enabled.
+One samplesheet may contain multiple factors, antibodies, classes and assay
+profiles. `COHORT_MODE=automatic` (recommended) includes factor and antibody in
+the identity, so compatible replicates/conditions share a universe while
+unrelated targets remain isolated.
 
-Conditions, treatments, donors, batches, and biological replicates belong
-together when they form one valid comparison. Use separate runs for different
-antibodies, factors, narrow/broad target policies, layouts, or genomes. This
-prevents unrelated regions from being combined into one consensus and count
-matrix.
+`COHORT_MODE=global-compatible` is an explicit researcher decision to omit
+factor and antibody from the identity. It can be appropriate when different
+antibodies are intentionally used to define one technical region universe.
+Genome, assay profile, layout, target class, analysis duplicate policy, primary
+caller/class and spike-in policy remain hard boundaries. A shared universe does
+not make different epitopes or factors biological replicates. Membership and
+policy tables preserve the exact decision for review.
 
 ## Matched and shared controls
 
-Input, IgG, and mock controls are supported and optional. A target's
+Input, IgG, and mock controls are supported and required by default. A target's
 `control_id` links to the control `sample_id`.
 
 Control resolution follows this order:
@@ -83,7 +84,7 @@ but it does not establish biological reproducibility.
 
 `RUN_IDR=false` is the default. When enabled, pairwise true-biological-replicate
 IDR is a supplementary result for narrow MACS3 cohorts. It does not replace the
-consensus, and v0.1 does not implement pooled or pseudoreplicate IDR. Broad
+consensus, and this release does not implement pooled or pseudoreplicate IDR. Broad
 domains use biological-support consensus and signal concordance rather than
 IDR. See the [IDR framework paper](https://doi.org/10.1214/11-AOAS466) when
 designing a full IDR analysis.

@@ -7,7 +7,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/parallel_jobs.sh"
 require_config
 
-mkdir -p "${OUTPUT_DIR}/01_fastq_qc/raw" "${OUTPUT_DIR}/01_fastq_qc/trimmed" \
+mkdir -p "${OUTPUT_DIR}/01_fastq_qc/raw" "${OUTPUT_DIR}/01_fastq_qc/raw_units" "${OUTPUT_DIR}/01_fastq_qc/trimmed" \
     "${OUTPUT_DIR}/01_fastq_qc/multiqc" "${OUTPUT_DIR}/01_fastq_qc/adapters" \
     "${OUTPUT_DIR}/02_trimmed_fastq" "${OUTPUT_DIR}/logs/preprocess"
 
@@ -25,10 +25,27 @@ merge_fastqs() {
 }
 
 worker() {
-    local key="$1" layout="$2" fq1_list="$3" fq2_list="$4"
+    local key="$1" layout="$2" assay_profile="$3" fq1_list="$4" fq2_list="$5"
     local work="${OUTPUT_DIR}/02_trimmed_fastq"
     local raw1="${work}/${key}.R1.merged.fastq.gz"
     local raw2="${work}/${key}.R2.merged.fastq.gz" log="${OUTPUT_DIR}/logs/preprocess/${key}.log"
+    if is_true "$RUN_FASTQC" && is_true "$RUN_FASTQC_PER_TECHNICAL_UNIT"; then
+        local unit unit_dir
+        local -a unit_r1 unit_r2
+        IFS=';' read -r -a unit_r1 <<< "$fq1_list"
+        IFS=';' read -r -a unit_r2 <<< "$fq2_list"
+        for unit in "${!unit_r1[@]}"; do
+            unit_dir="${OUTPUT_DIR}/01_fastq_qc/raw_units/${key}/techR$((unit+1))"
+            mkdir -p "$unit_dir"
+            if [[ "$layout" == "PE" ]]; then
+                run_logged fastqc --threads "$THREADS_FASTQC" --outdir "$unit_dir" \
+                    "${unit_r1[$unit]}" "${unit_r2[$unit]}" >>"$log" 2>&1
+            else
+                run_logged fastqc --threads "$THREADS_FASTQC" --outdir "$unit_dir" \
+                    "${unit_r1[$unit]}" >>"$log" 2>&1
+            fi
+        done
+    fi
     merge_fastqs "$fq1_list" "$raw1"
     [[ "$layout" == "PE" ]] && merge_fastqs "$fq2_list" "$raw2"
     if is_true "$RUN_FASTQC"; then
@@ -72,7 +89,7 @@ worker() {
             evidence="explicit configuration"
         fi
         printf 'sample_key\tassay_profile\trequested_preset\tresolved_method\tevidence\n%s\t%s\t%s\t%s\t%s\n' \
-            "$key" "$ASSAY_PROFILE" "$ADAPTER_PRESET" "$detected" "$evidence" \
+            "$key" "$assay_profile" "$ADAPTER_PRESET" "$detected" "$evidence" \
             > "${OUTPUT_DIR}/01_fastq_qc/adapters/${key}.tsv"
     else
         ln -sfn "$(basename "$raw1")" "${work}/${key}.R1.trimmed.fastq.gz"
@@ -97,7 +114,7 @@ while IFS=$'\t' read -r \
     is_control control_type control_id control_key duplicate_policy blacklist ratio spike_stage spike_lot batch donor output_prefix \
     technical_units fastq_1_list fastq_2_list cohort_id cohort_key primary_caller primary_class; do
     [[ "$sample_key" == "sample_key" ]] && continue
-    parallel_pool_submit "$sample_key" worker "$sample_key" "$layout" "$fastq_1_list" "$fastq_2_list"
+    parallel_pool_submit "$sample_key" worker "$sample_key" "$layout" "$assay_profile" "$fastq_1_list" "$fastq_2_list"
 done < "$SAMPLE_MANIFEST"
 parallel_pool_wait_all
 

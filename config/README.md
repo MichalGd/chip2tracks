@@ -1,63 +1,71 @@
 # Configuration
 
-Copy `config.conf.template` outside the repository and replace every path. It is
-a non-executable `KEY=VALUE` file: unknown keys, shell expansion, unsafe values,
-and missing required options are rejected.
+Copy `config.conf.template` outside the repository and replace every path. It
+is a non-executable `KEY=VALUE` file: unknown keys, shell expansion, unsafe
+values, and missing required options are rejected. Set `SAMPLESHEET` in this
+file; the normal launch command needs only `--config`.
 
-Choose exactly one run-wide profile:
+Assay profile is a samplesheet field, not a run-wide config value. A run may
+contain `chipseq` and `chipmentation` libraries; they always remain in
+separate compatible cohorts. If any chipmentation library is present,
+`TRIM_ADAPTERS=true` is required. The adapter preset remains run-wide, so
+mixed-profile runs must use a preset that is suitable for every library.
 
-```text
-ASSAY_PROFILE=chipseq
-ASSAY_PROFILE=chipmentation
-```
+## Cohort policy
 
-`ADAPTER_PRESET=auto` is preferred when the local kit is unknown. The workflow
-records Trim Galore detection evidence. Use `illumina`, `nextera`, or `custom`
-when known; custom mode requires `CUSTOM_ADAPTER_R1` and optionally R2. Adapter
-auto-detection is a convenience, not a substitute for laboratory provenance.
+`COHORT_MODE=automatic` is the recommended default. It creates independent
+peak universes for each compatible factor and antibody. Multiple factors,
+antibodies, conditions and replicates can therefore be processed in one run
+without mixing their downstream count matrices.
 
-Matched controls are optional by default. A target with no control uses an
-empty `control_id`. Set `ALLOW_CONTROL_FREE_PEAKCALL=false` if a project
-requires controls. Compatible
-shared controls are allowed by default and still undergo metadata validation.
+`COHORT_MODE=global-compatible` is an explicit researcher override. It ignores
+factor and antibody when grouping targets, allowing a shared consensus peak
+universe across different antibodies. It still separates genomes, assay
+profiles, PE/SE layouts, target classes, duplicate policies, primary callers,
+primary peak classes and spike-in policies. Generated `cohort_policy.tsv` and
+`cohort_membership.tsv` record this choice, and mixed factor/antibody fields in
+`cohort_manifest.tsv` are reported as `MULTIPLE`. This option defines a
+technical region universe; it does not assert biological equivalence.
 
-The supplied public template disables spike-in. To enable the laboratory's dm6
-cell spike-in protocol, set `SPIKEIN_MODE=dm6`, replace the composite-index and
-dm6 paths, and populate the three spike-in sample-sheet columns.
+Matched controls are the template default. Set
+`ALLOW_CONTROL_FREE_PEAKCALL=true` only for a justified control-free design.
+Shared controls likewise require `ALLOW_SHARED_CONTROLS=true` and still must
+pass metadata compatibility checks.
 
-Every selected assembly needs `INDEX`, `FASTA`, `CHROM_SIZES`,
-`CANONICAL_CONTIGS`, `GTF`, `BLACKLIST`, and `EFFECTIVE_GENOME_SIZE` reference
-keys. Effective genome size is not the same as the chromosome-length sum.
+## Samplesheet and references
 
-The CSV header is exact and contains 25 columns. Use the files under
-`config/examples/` as schema examples. PE requires both FASTQs; SE requires an
-empty `fastq_2`. Each row is a technical unit. Rows sharing
-`sample_id + replicate` are merged only when all biological metadata agree.
+The exact CSV header has 24 columns. Use `config/examples/` as schema examples.
+PE requires both FASTQs; SE requires an empty `fastq_2`. Each row is a
+technical unit. Rows sharing `sample_id + replicate` are merged only when all
+biological metadata agree.
 
-Relevant biological fields include assay, factor, antibody, narrow/broad/mixed
-class, condition, treatment, cell type, biological/technical replicate,
-control type/linkage, duplicate policy, blacklist, spike-in ratio/stage/lot,
-batch, donor and a safe unique output prefix.
+Blacklist paths do not belong in the samplesheet. Every assembly needs
+`INDEX_<GENOME>`, `FASTA_<GENOME>`, `CHROM_SIZES_<GENOME>`,
+`CANONICAL_CONTIGS_<GENOME>`, `GTF_<GENOME>`,
+`BLACKLIST_<GENOME>` and `EFFECTIVE_GENOME_SIZE_<GENOME>`. The workflow
+resolves the configured blacklist into the generated sample manifest.
 
-One samplesheet is one compatible target/antibody and peak universe. Put
-different factors, antibodies, layouts, target classes, or analysis policies in
-separate runs. Conditions and replicates remain together for consensus and
-differential analysis.
+`ADAPTER_PRESET=auto` records Trim Galore evidence. Use `illumina`, `nextera`
+or `custom` when the protocol is known. `RUN_FASTQC_PER_TECHNICAL_UNIT=true`
+adds pre-merge unit QC while preserving merged-raw and trimmed FastQC.
 
-The template enables bigWig and uncompressed bedGraph output for the analysis,
-MAPQ-0 duplicate-retained, MAPQ-0 duplicate-removed, and MAPQ-30
-duplicate-removed CPM families. The corresponding `GENERATE_*` switches are
-ordinary `config.conf` values. Stringent robust-CPM is also enabled.
+Spike-in is off by default. Enabling it requires the competitive reference
+settings and all three spike-in samplesheet fields.
 
-`TOTAL_CPU_BUDGET=auto` uses the CPUs visible to the process. Preflight records
-per-stage maximum CPU requests and warns on overcommit by default; use
-`RESOURCE_CHECK_MODE=fail` for strict enforcement.
+## Resources and observability
 
-Scientific configuration guidance:
+Separate bounded job limits cover preprocessing/QC, alignment, tracks,
+peak-calling, consensus/IDR, normalized tracks, differential analysis and
+annotation. `TOTAL_CPU_BUDGET=auto` uses visible CPUs. Preflight writes
+`resource_budget.tsv`; `RESOURCE_CHECK_MODE=fail` makes overcommit fatal.
 
-- [References, blacklist, and filtering](../docs/10_references_blacklist_and_filtering.md)
+`WRITE_CONSOLE_LOG`, `WRITE_COMMAND_LOG` and `WRITE_STRUCTURED_LOG` preserve
+console output, command start/end/exit records and workflow events across
+resumes. Stage timing includes the run ID and is append-only.
+
+Further guidance:
+
+- [Inputs and configuration](../docs/01_inputs_and_configuration.md)
 - [Quality control](../docs/11_quality_control.md)
-- [Tracks and normalization](../docs/12_tracks_and_normalization.md)
 - [Replicates, controls, and design](../docs/13_replicates_and_design.md)
-- [Differential occupancy](../docs/14_differential_occupancy.md)
 - [Annotation](../docs/15_annotation.md)
