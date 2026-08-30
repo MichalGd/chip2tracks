@@ -41,4 +41,7 @@ for status_file in "$status_dir"/*.tsv; do
     [[ -s "$status_file" ]] || continue
     tail -n +2 "$status_file" >> "$status"
 done
-is_true "$pool_failed" && exit 1
+if is_true "$pool_failed"; then
+    exit 1
+fi
+exit 0
