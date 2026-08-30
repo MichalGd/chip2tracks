@@ -14,7 +14,7 @@ from pathlib import Path
 
 BOOLEAN_KEYS = {
     "ALLOW_MIXED_LAYOUTS", "ALLOW_MIXED_GENOMES", "TRIM_ADAPTERS",
-    "ADAPTER_AUTO_DETECTION_REQUIRED",
+    "ADAPTER_AUTO_DETECTION_REQUIRED", "RUN_FASTQC_PER_TECHNICAL_UNIT",
     "RUN_FASTQC", "RUN_MULTIQC", "MULTIQC_EXPORT_PLOTS", "BOWTIE2_DOVETAIL", "BOWTIE2_MIXED",
     "BOWTIE2_DISCORDANT", "REMOVE_MITO", "ALLOW_EMPTY_FILTERED_BAM",
     "ALLOW_SHARED_CONTROLS",
@@ -40,11 +40,12 @@ BOOLEAN_KEYS = {
     "METAGENE_INCLUDE_CONTROLS", "METAGENE_SKIP_ZERO_REGIONS",
     "RUN_CONTROL_SUBTRACTED_SENSITIVITY", "RUN_TARGET_CONTROL_INTERACTION",
     "RUN_SIMPLE_PEAK_ANNOTATION", "RUN_CCRE_ANNOTATION",
+    "RUN_FEATURE_ANNOTATION_SUMMARY", "PEAK_ANNOTATION_INCLUDE_CONSENSUS",
     "RUN_MOTIF_ENRICHMENT", "ENABLE_AUTOMATIC_CLEANUP",
     "KEEP_TRIMMED_FASTQ", "KEEP_RAW_ALIGNMENT_BAMS", "KEEP_MARKED_BAMS",
     "KEEP_FILTERED_BAMS",
     "KEEP_SPIKEIN_BAMS", "WRITE_IGV_SESSION", "WRITE_COMMAND_LOG",
-    "WRITE_FILE_CHECKSUMS",
+    "WRITE_STRUCTURED_LOG", "WRITE_CONSOLE_LOG", "WRITE_FILE_CHECKSUMS",
 }
 
 POSITIVE_INTEGER_KEYS = {
@@ -58,8 +59,11 @@ POSITIVE_INTEGER_KEYS = {
     "SPIKEIN_MIN_OBSERVATIONS_WARN", "FRAGMENT_PLOT_MAX_BP",
     "TSS_PROFILE_UPSTREAM", "TSS_PROFILE_DOWNSTREAM",
     "DIFFERENTIAL_MIN_REPLICATES_PER_CONDITION", "THREADS_PARALLEL_JOBS",
+    "PEAK_ANNOTATION_PROMOTER_UPSTREAM", "PEAK_ANNOTATION_PROMOTER_DOWNSTREAM",
     "QC_SAMPLE_PARALLEL_JOBS", "TRACK_PARALLEL_JOBS",
-    "PEAKCALL_PARALLEL_JOBS", "SPIKEIN_PARALLEL_JOBS",
+    "PEAKCALL_PARALLEL_JOBS", "MERGE_PARALLEL_JOBS", "SPIKEIN_PARALLEL_JOBS",
+    "NORMALIZED_TRACK_PARALLEL_JOBS", "DIFFERENTIAL_PARALLEL_JOBS",
+    "ANNOTATION_PARALLEL_JOBS",
     "METAGENE_BODY_LENGTH_BP", "METAGENE_BIN_SIZE_BP", "METAGENE_DPI",
     "METAGENE_THREADS_COMPUTEMATRIX", "METAGENE_PARALLEL_JOBS",
     "CHECKPOINT_PARALLEL_JOBS", "CHECKSUM_PARALLEL_JOBS",
@@ -69,6 +73,7 @@ NONNEGATIVE_INTEGER_KEYS = {
     "BOWTIE2_SEED", "PERMISSIVE_MIN_MAPQ", "INTERMEDIATE_MIN_MAPQ",
     "METAGENE_REFERENCE_UPSTREAM_BP", "METAGENE_REFERENCE_DOWNSTREAM_BP",
     "METAGENE_BODY_UPSTREAM_BP", "METAGENE_BODY_DOWNSTREAM_BP",
+    "PEAK_ANNOTATION_GENE_END_WINDOW",
 }
 
 FLOAT_KEYS = {
@@ -80,7 +85,7 @@ FLOAT_KEYS = {
 }
 
 ENUMS = {
-    "ASSAY_PROFILE": {"chipseq", "chipmentation"},
+    "COHORT_MODE": {"automatic", "global-compatible"},
     "ADAPTER_PRESET": {"auto", "illumina", "nextera", "custom", "none"},
     "BOWTIE2_MODE": {"end-to-end", "local"},
     "BOWTIE2_PRESET": {"very-sensitive", "sensitive", "very-sensitive-local", "sensitive-local"},
@@ -106,6 +111,21 @@ KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 # configs restartable while the resolved configuration records the new values.
 BACKWARD_COMPATIBLE_DEFAULTS = {
     "MULTIQC_EXPORT_PLOTS": "false",
+    "COHORT_MODE": "automatic",
+    "RUN_FASTQC_PER_TECHNICAL_UNIT": "true",
+    "RUN_FEATURE_ANNOTATION_SUMMARY": "true",
+    "PEAK_ANNOTATION_PROMOTER_UPSTREAM": "2000",
+    "PEAK_ANNOTATION_PROMOTER_DOWNSTREAM": "500",
+    "PEAK_ANNOTATION_GENE_END_WINDOW": "2000",
+    "PEAK_ANNOTATION_FEATURE_PRECEDENCE": "promoter,enhancer,exon,intron,gene_end,other_regulatory,intergenic,unclassified",
+    "PEAK_ANNOTATION_PLOT_FORMATS": "png,pdf,svg",
+    "PEAK_ANNOTATION_INCLUDE_CONSENSUS": "true",
+    "MERGE_PARALLEL_JOBS": "2",
+    "NORMALIZED_TRACK_PARALLEL_JOBS": "2",
+    "DIFFERENTIAL_PARALLEL_JOBS": "2",
+    "ANNOTATION_PARALLEL_JOBS": "2",
+    "WRITE_STRUCTURED_LOG": "true",
+    "WRITE_CONSOLE_LOG": "true",
     "CHECKPOINT_PARALLEL_JOBS": "4",
     "CHECKSUM_PARALLEL_JOBS": "4",
 }
@@ -230,10 +250,6 @@ def validate(values: dict[str, str], required_keys: set[str]) -> list[str]:
     if values.get("BOWTIE2_MAX_INSERT", "0").isdigit() and values.get("BOWTIE2_MIN_INSERT", "0").isdigit():
         if int(values["BOWTIE2_MAX_INSERT"]) < int(values["BOWTIE2_MIN_INSERT"]):
             errors.append("BOWTIE2_MAX_INSERT must be >= BOWTIE2_MIN_INSERT")
-    if values.get("ASSAY_PROFILE") not in {"chipseq", "chipmentation"}:
-        errors.append("ASSAY_PROFILE must be chipseq or chipmentation")
-    if values.get("ASSAY_PROFILE") == "chipmentation" and values.get("TRIM_ADAPTERS") != "true":
-        errors.append("ASSAY_PROFILE=chipmentation requires TRIM_ADAPTERS=true in v0.1")
     if values.get("ADAPTER_PRESET") == "custom" and not values.get("CUSTOM_ADAPTER_R1"):
         errors.append("CUSTOM_ADAPTER_R1 is required when ADAPTER_PRESET=custom")
     if values.get("ADAPTER_PRESET") == "none" and values.get("TRIM_ADAPTERS") == "true":
@@ -257,6 +273,28 @@ def validate(values: dict[str, str], required_keys: set[str]) -> list[str]:
                     errors.append(f"{key} must be >0 and <=1")
             except ValueError:
                 pass
+    precedence = [
+        item.strip().lower()
+        for item in values.get("PEAK_ANNOTATION_FEATURE_PRECEDENCE", "").split(",")
+        if item.strip()
+    ]
+    expected_categories = {
+        "promoter", "enhancer", "exon", "intron", "gene_end",
+        "other_regulatory", "intergenic", "unclassified",
+    }
+    if len(precedence) != len(expected_categories) or set(precedence) != expected_categories:
+        errors.append(
+            "PEAK_ANNOTATION_FEATURE_PRECEDENCE must contain each supported category exactly once"
+        )
+    values["PEAK_ANNOTATION_FEATURE_PRECEDENCE"] = ",".join(precedence)
+    annotation_formats = [
+        item.strip().lower()
+        for item in values.get("PEAK_ANNOTATION_PLOT_FORMATS", "").split(",")
+        if item.strip()
+    ]
+    if not annotation_formats or not set(annotation_formats) <= {"png", "pdf", "svg"}:
+        errors.append("PEAK_ANNOTATION_PLOT_FORMATS must be a nonempty subset of png,pdf,svg")
+    values["PEAK_ANNOTATION_PLOT_FORMATS"] = ",".join(dict.fromkeys(annotation_formats))
     gene_sets = [item.strip() for item in values.get("METAGENE_GENE_SETS", "").split(",") if item.strip()]
     if not gene_sets or any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", item) for item in gene_sets):
         errors.append("METAGENE_GENE_SETS must be a nonempty comma-separated list of safe IDs")
@@ -308,7 +346,10 @@ def main() -> int:
 
     try:
         allowed = template_keys(args.template)
-        values = parse_config(args.config, allowed)
+        values = parse_config(args.config, allowed | {"ASSAY_PROFILE"})
+        # Accepted only to keep existing v0.1 configurations restartable. Assay
+        # profile is now a per-library samplesheet field and this value is ignored.
+        values.pop("ASSAY_PROFILE", None)
         for key, value in BACKWARD_COMPATIBLE_DEFAULTS.items():
             values.setdefault(key, value)
         if args.samplesheet:

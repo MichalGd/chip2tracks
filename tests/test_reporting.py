@@ -62,6 +62,28 @@ class ReportingTests(unittest.TestCase):
                     "deseq2_robust_cpm/permissive\tq0_dup-retained\t0\tretained\tfragment\t1800\t"
                     "180\t10.0000\t360\t20.0000\t90\t5.0000\n"
                 ),
+                "04_tracks/cpm/mapping_composition_definitions.tsv": (
+                    "metric\tdefinition\nxs_tagged_candidate_multimappers\tBowtie2 XS-tagged signal units.\n"
+                ),
+                "04_tracks/cpm/TARGET.bioR1.CPM.bw": "fixture\n",
+                "06_qc/optional_qc_status.tsv": (
+                    "sample_key\tmetric\tstatus\treason\n"
+                    "TARGET.bioR1\tcross_correlation\tSKIPPED\tRUN_CROSS_CORRELATION=false\n"
+                ),
+                "06_qc/frip_and_peak_reproducibility/TARGET.bioR1.sample_primary_frip.tsv": (
+                    "sample_key\tsignal_unit\ttotal\tin_sample_primary_peaks\tfrip\n"
+                    "TARGET.bioR1\tfragment\t1234\t400\t0.32414911\n"
+                ),
+                "06_qc/frip_and_peak_reproducibility/TARGET.bioR1.frip.tsv": (
+                    "sample_key\tsignal_unit\ttotal\tin_consensus\tfrip\n"
+                    "TARGET.bioR1\tfragment\t1234\t321\t0.26012966\n"
+                ),
+                "06_qc/fragment_length_and_periodicity/TARGET.bioR1.fragment_lengths.tsv": (
+                    "fragment_length\tcount\n100\t2\n150\t3\n200\t5\n"
+                ),
+                "06_qc/fragment_length_and_periodicity/TARGET.bioR1.phantompeak.tsv": (
+                    "TARGET.tagAlign.gz\t1234\t150\t0.20\t36\t0.10\t500\t0.05\t1.40\t2.00\t2\n"
+                ),
                 "08_differential/stage_status.tsv": (
                     "status\tfailed_modules\tskipped_cohorts\nCOMPLETED_WITH_WARNINGS\t0\t1\n"
                 ),
@@ -106,7 +128,9 @@ class ReportingTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             report_dir = output / "10_reports"
             for name in ("pipeline_report.html", "run_summary.tsv", "warning_summary.tsv",
-                         "coverage_mapping_composition.tsv", "differential_occupancy_summary.tsv"):
+                         "qc_module_summary.tsv", "coverage_mapping_composition.tsv",
+                         "fragment_qc_summary.tsv", "cross_correlation_summary.tsv",
+                         "track_inventory.tsv", "differential_occupancy_summary.tsv"):
                 self.assertTrue((report_dir / name).is_file(), name)
                 self.assertGreater((report_dir / name).stat().st_size, 0)
             warnings = (report_dir / "warning_summary.tsv").read_text(encoding="utf-8")
@@ -115,6 +139,12 @@ class ReportingTests(unittest.TestCase):
             html_report = (report_dir / "pipeline_report.html").read_text(encoding="utf-8")
             self.assertIn("Mapping composition of coverage families", html_report)
             self.assertIn("XS-tagged candidate multimappers", html_report)
+            self.assertIn("QC modules and retained evidence", html_report)
+            self.assertIn("FRiP against sample primary peaks", html_report)
+            self.assertIn("Strand cross-correlation summary", html_report)
+            self.assertIn("1.40", html_report)
+            self.assertIn("Complete retained-track inventory", html_report)
+            self.assertIn("TARGET.bioR1.CPM.bw", html_report)
             self.assertIn("Differential occupancy analysis", html_report)
             differential_summary = (report_dir / "differential_occupancy_summary.tsv").read_text(encoding="utf-8")
             self.assertIn("sensitivity_control_subtracted", differential_summary)
@@ -136,6 +166,10 @@ class ReportingTests(unittest.TestCase):
             self.assertIn("chip2tracks_observations_mqc.tsv", manifest)
             self.assertIn("chip2tracks_peakcalls_mqc.tsv", manifest)
             self.assertIn("chip2tracks_coverage_mapping_mqc.tsv", manifest)
+            self.assertIn("chip2tracks_qc_modules_mqc.tsv", manifest)
+            self.assertIn("chip2tracks_fragment_summary_mqc.tsv", manifest)
+            self.assertIn("chip2tracks_cross_correlation_mqc.tsv", manifest)
+            self.assertIn("chip2tracks_track_inventory_mqc.tsv", manifest)
             self.assertIn("chip2tracks_comparisons_mqc.tsv", manifest)
             custom_peakcalls = (custom_dir / "chip2tracks_peakcalls_mqc.tsv").read_text(encoding="utf-8")
             self.assertIn("# plot_type: table", custom_peakcalls)

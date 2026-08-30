@@ -2,114 +2,71 @@
 
 [Documentation index](README.md) | [Differential occupancy](14_differential_occupancy.md)
 
-The annotation stage adds two lightweight reference-overlap layers to each
-cohort consensus: the nearest GTF `gene` interval and overlapping cCRE reference
-records. Annotation is descriptive, runs after statistical testing, and never
-changes peak calls, counts, P-values, adjusted P-values, or fold changes.
+Annotation is descriptive and runs after peak calling/statistical testing. It
+does not alter peaks, counts, P-values, adjusted P-values or fold changes.
 
-## Configuration and required references
+## Implemented layers
+
+The lightweight cohort view is retained:
+
+- nearest whole-gene span for each consensus interval;
+- all cCRE reference overlaps for each consensus interval.
+
+The comprehensive feature summary additionally processes every successful
+per-sample/caller peak set and, optionally, every cohort consensus. It assigns:
+
+- promoter, enhancer, exon, intron, gene-end, other-regulatory, intergenic or
+  unclassified context;
+- all overlapping feature records;
+- one deterministic primary feature using the configured precedence;
+- primary gene identifiers/names where applicable;
+- strand-aware signed distance to the nearest TSS;
+- cCRE-derived enhancer context when a compatible cCRE reference is available.
+
+Configuration:
 
 ```text
 RUN_SIMPLE_PEAK_ANNOTATION=true
 RUN_CCRE_ANNOTATION=true
-GTF_HG38=/path/to/annotation.gtf
-CCRE_BED_HG38=/path/to/hg38.ccre.bed.gz
+RUN_FEATURE_ANNOTATION_SUMMARY=true
+PEAK_ANNOTATION_PROMOTER_UPSTREAM=2000
+PEAK_ANNOTATION_PROMOTER_DOWNSTREAM=500
+PEAK_ANNOTATION_GENE_END_WINDOW=2000
+PEAK_ANNOTATION_FEATURE_PRECEDENCE=promoter,enhancer,exon,intron,gene_end,other_regulatory,intergenic,unclassified
+PEAK_ANNOTATION_PLOT_FORMATS=png,pdf,svg
+PEAK_ANNOTATION_INCLUDE_CONSENSUS=true
 ```
 
-Equivalent assembly-specific keys are required for other genomes. With
-`RUN_CCRE_ANNOTATION=true`, preflight requires a readable nonempty cCRE BED.
-Set it to `false` for nearest-gene-only annotation. Setting
-`RUN_SIMPLE_PEAK_ANNOTATION=false` disables nearest-gene annotation but does not
-implicitly disable the separately configured cCRE overlap.
+GTF and chromosome-size references are required per genome. cCRE references are
+required only when cCRE annotation is enabled. Gzip-compressed GTF/cCRE inputs
+are accepted.
 
-`RUN_MOTIF_ENRICHMENT` must remain `false`: motif enrichment is not implemented
-in v0.1, and preflight fails if it is enabled.
+## Outputs
 
-## Nearest-gene implementation
+`07_annotation/feature_summary/` contains:
 
-For each cohort, the workflow:
+- `peak_feature_assignments.tsv.gz`: one deterministic assignment per peak;
+- `peak_feature_all_overlaps.tsv.gz`: exhaustive peak/feature overlaps;
+- `peak_feature_counts.tsv`, `peak_feature_fractions.tsv` and
+  `peak_feature_bp_coverage.tsv`;
+- `peak_feature_summary.tsv` and `peak_feature_colors.tsv`;
+- `peak_annotation_status.tsv`;
+- composition plots in the selected formats.
 
-1. extracts GTF records whose feature type is exactly `gene`;
-2. converts them to BED with chromosome, gene span, `gene_name`, `gene_id`, and
-   strand;
-3. sorts both genes and consensus intervals using the configured chromosome-size
-   order; and
-4. runs `bedtools closest -d` against whole gene spans.
+Cohort-local lightweight files remain under
+`07_annotation/<cohort>/consensus/`.
 
-The output is:
+Differential result tables containing `region_id` receive adjacent annotated
+copies. Both gzip-compressed and uncompressed TSVs are supported, including
+DiffBind outputs. Comprehensive primary category/gene/TSS fields and lightweight
+nearest-gene/cCRE fields are propagated when available; original statistical
+tables remain unchanged.
 
-```text
-07_annotation/<cohort>/consensus/<cohort>.nearest_gene.tsv
-```
+## Interpretation limits
 
-The first five columns are the consensus interval and support count, followed
-by the six GTF-derived gene BED columns and the unsigned distance reported by
-`bedtools closest`. Distance is zero for an overlap. This is nearest **gene
-span**, not nearest TSS, and it is not strand-oriented regulatory distance.
+A nearest or overlapping gene is not a validated regulatory target. cCRE overlap
+is reference context, not evidence that an element is active in the assayed
+cell type. Category results depend on the exact GTF/cCRE releases, promoter
+windows and precedence ordering, all of which must be retained in provenance.
 
-The result depends on the exact GTF release and requires `gene` features with
-usable `gene_id`; `gene_name` is retained when present. A nearest gene is a
-proximity annotation, not evidence that the ChIP-enriched region regulates or
-is regulated by that gene.
-
-## cCRE overlap implementation
-
-When enabled, the workflow runs `bedtools intersect -wao` between the cohort
-consensus and `CCRE_BED_<GENOME>`:
-
-```text
-07_annotation/<cohort>/consensus/<cohort>.ccre_reference_overlaps.tsv
-```
-
-The table preserves every consensus/cCRE overlap, all supplied cCRE BED fields,
-and the overlap length. Non-overlapping consensus regions remain visible with
-the normal `-wao` placeholder fields.
-
-For annotated differential tables, v0.1 collects unique values from cCRE BED
-column 4 into `ccre_reference_overlaps`. Therefore column 4 should contain a
-stable element identifier or the value the project wants propagated. The
-workflow does not parse the full ENCODE cCRE class vocabulary or choose a
-primary cCRE when several overlap.
-
-cCRE reference overlap is cell-type-agnostic reference context. It is not proof
-that an element is active in the assayed cells, and it does not establish an
-enhancer-to-gene relationship. Record the source release and assembly in the
-reference manifest. For current ENCODE registry concepts and downloads, see
-[SCREEN](https://screen.wenglab.org/) and the
-[ENCODE candidate regulatory element resources](https://www.encodeproject.org/).
-
-## Propagation to differential tables
-
-After consensus annotation, `scripts/annotate_differential_results.py` finds
-gzipped TSV result tables under `08_differential/<cohort>/` that contain a
-`region_id` column and writes an adjacent `*.annotated.tsv.gz` copy. It adds:
-
-| Column | Meaning |
-|---|---|
-| `nearest_gene_name` | nearest whole-gene interval's name, when present |
-| `nearest_gene_id` | nearest whole-gene interval's GTF identifier |
-| `distance_to_gene` | unsigned `bedtools closest -d` distance; zero on overlap |
-| `ccre_reference_overlaps` | unique overlapping cCRE BED column-4 values |
-
-The original table remains the statistical source of truth. In v0.1, direct
-DESeq2Enrichment and target/control interaction outputs are gzipped TSVs and
-receive annotated copies. DiffBind writes uncompressed TSVs and does not receive
-automatic annotation.
-
-## What is not implemented
-
-Unlike the richer ATACseq2tracks annotation module, `chip2tracks` v0.1 does not
-currently provide:
-
-- promoter, exon, intron, or distal-intergenic classification;
-- strand-aware nearest-TSS distance;
-- a deterministic primary cCRE and parsed cCRE class fields;
-- annotation summaries per differential contrast;
-- automatic annotation of DiffBind TSVs;
-- motif enrichment; or
-- enhancer-to-gene assignment.
-
-These are explicit limitations, not implied outputs. The current lightweight
-annotation is sufficient for interval lookup and preliminary review, while a
-future release can reuse the tested ATACseq2tracks annotation design after
-ChIP-specific validation.
+Motif enrichment and enhancer-to-gene assignment remain out of scope.

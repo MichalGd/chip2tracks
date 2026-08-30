@@ -36,6 +36,9 @@ printf 'cohort_id\tpolicy\tstatus\treason\tlog\nCOHORT_A\tanalysis\tSUCCESS\t.\t
     > "$OUTPUT/04_tracks/normalized_track_family_status.tsv"
 printf 'sample_key\tpolicy\tcpm_family\tnormalized_family_source\tbam_branch\tmapq_policy\tduplicates\tsignal_unit\ttotal_observations\tmapq0_observations\tmapq0_percent\tmapq_lt30_observations\tmapq_lt30_percent\txs_tagged_candidate_multimappers\txs_tagged_percent\nTARGET.bioR1\tpermissive\tcpm/permissive\tdeseq2_robust_cpm/permissive\tq0_dup-retained\t0\tretained\tfragment\t1800\t180\t10.0000\t360\t20.0000\t90\t5.0000\n' \
     > "$OUTPUT/04_tracks/cpm/mapping_composition.tsv"
+printf 'metric\tdefinition\nxs_tagged_candidate_multimappers\tBowtie2 XS-tagged signal units.\n' \
+    > "$OUTPUT/04_tracks/cpm/mapping_composition_definitions.tsv"
+printf 'fixture\n' > "$OUTPUT/04_tracks/cpm/TARGET.bioR1.CPM.bw"
 printf 'status\tfailed_modules\tskipped_cohorts\nSUCCESS\t0\t0\n' > "$OUTPUT/08_differential/stage_status.tsv"
 summary_header='comparison_id\tnumerator\treference\ttested\tsignificant\thigher_in_numerator\thigher_in_reference\tstatus\tall_results\tsignificant_results'
 printf "%b\ntreated_vs_untreated\ttreated\tuntreated\t100\t12\t8\t4\tSUCCESS\tcomparisons/treated_vs_untreated/all.tsv.gz\tcomparisons/treated_vs_untreated/significant.tsv.gz\n" "$summary_header" \
@@ -54,6 +57,11 @@ printf 'fixture\n' > "$OUTPUT/08_differential/COHORT_A/broad/sensitivity_target_
 printf 'fixture\n' > "$OUTPUT/08_differential/COHORT_A/broad/sensitivity_target_control_interaction/deseq2/interaction_results_significant.tsv.gz"
 printf 'sample_key\tsignal_unit\ttotal\tin_consensus\tfrip\nTARGET.bioR1\tfragment\t1234\t321\t0.26012966\n' \
     > "$OUTPUT/06_qc/frip_and_peak_reproducibility/TARGET.bioR1.frip.tsv"
+mkdir -p "$OUTPUT/06_qc/fragment_length_and_periodicity"
+printf 'fragment_length\tcount\n100\t2\n150\t3\n200\t5\n' \
+    > "$OUTPUT/06_qc/fragment_length_and_periodicity/TARGET.bioR1.fragment_lengths.tsv"
+printf 'TARGET.tagAlign.gz\t1234\t150\t0.20\t36\t0.10\t500\t0.05\t1.40\t2.00\t2\n' \
+    > "$OUTPUT/06_qc/fragment_length_and_periodicity/TARGET.bioR1.phantompeak.tsv"
 
 cat > "$TEMPORARY/bin/multiqc" <<'FAKE'
 #!/usr/bin/env bash
@@ -84,7 +92,9 @@ after="$(sha256sum "$OUTPUT/00_metadata/sample_manifest.tsv")"
 [[ "$before" == "$after" ]]
 
 for required in \
-    pipeline_report.html run_summary.tsv warning_summary.tsv coverage_mapping_composition.tsv \
+    pipeline_report.html run_summary.tsv warning_summary.tsv qc_module_summary.tsv \
+    fragment_qc_summary.tsv cross_correlation_summary.tsv \
+    coverage_mapping_composition.tsv track_inventory.tsv \
     differential_occupancy_summary.tsv \
     chip2tracks_multiqc_report.html multiqc_status.tsv \
     multiqc_custom_content_manifest.tsv report_checksums.sha256; do
@@ -94,10 +104,17 @@ done
 grep -q $'SUCCESS\t' "$OUTPUT/10_reports/multiqc_status.tsv"
 grep -q 'chip2tracks_observations' "$OUTPUT/10_reports/multiqc_custom_content_manifest.tsv"
 grep -q 'chip2tracks_coverage_mapping' "$OUTPUT/10_reports/multiqc_custom_content_manifest.tsv"
+grep -q 'chip2tracks_qc_modules' "$OUTPUT/10_reports/multiqc_custom_content_manifest.tsv"
+grep -q 'chip2tracks_fragment_summary' "$OUTPUT/10_reports/multiqc_custom_content_manifest.tsv"
+grep -q 'chip2tracks_cross_correlation' "$OUTPUT/10_reports/multiqc_custom_content_manifest.tsv"
+grep -q 'chip2tracks_track_inventory' "$OUTPUT/10_reports/multiqc_custom_content_manifest.tsv"
 grep -q 'chip2tracks_comparisons' "$OUTPUT/10_reports/multiqc_custom_content_manifest.tsv"
 grep -q 'Retained analysis observations' "$OUTPUT/10_reports/pipeline_report.html"
 grep -q 'Mapping composition of coverage families' "$OUTPUT/10_reports/pipeline_report.html"
 grep -q 'XS-tagged candidate multimappers' "$OUTPUT/10_reports/pipeline_report.html"
+grep -q 'QC modules and retained evidence' "$OUTPUT/10_reports/pipeline_report.html"
+grep -q 'Strand cross-correlation summary' "$OUTPUT/10_reports/pipeline_report.html"
+grep -q 'Complete retained-track inventory' "$OUTPUT/10_reports/pipeline_report.html"
 grep -q 'Differential occupancy analysis' "$OUTPUT/10_reports/pipeline_report.html"
 grep -q 'sensitivity_control_subtracted' "$OUTPUT/10_reports/differential_occupancy_summary.tsv"
 grep -q 'matched controls unavailable' "$OUTPUT/10_reports/differential_occupancy_summary.tsv"

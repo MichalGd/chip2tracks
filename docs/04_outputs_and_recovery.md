@@ -105,7 +105,7 @@ size-checked outputs.
 Stop after a stage without editing the workflow:
 
 ```bash
-bash chip2tracks.sh --config /path/to/config.conf --stop-after reproducibility
+bash chip2tracks.sh --config /path/to/config.conf --stop-after consensus
 ```
 
 ## Stable reporting interfaces
@@ -119,11 +119,15 @@ The final interactive report is
 `10_reports/chip2tracks_multiqc_report.html`; its parsed data directory,
 exported plots, log, custom-content manifest, and status table are retained
 beside it. `10_reports/pipeline_report.html` remains a dependency-light summary,
-with `run_summary.tsv` and `warning_summary.tsv` as stable tabular companions.
+with `run_summary.tsv`, `warning_summary.tsv`, `qc_module_summary.tsv`,
+`fragment_qc_summary.tsv`, and `cross_correlation_summary.tsv` as stable tabular
+companions.
 Both reports include coverage-family mapping composition, and
 `10_reports/coverage_mapping_composition.tsv` is its stable final-report table.
 The counts describe the BAM policy underlying both the bedGraph and bigWig,
 not information recovered from either coverage file after conversion.
+`10_reports/track_inventory.tsv` lists every retained bedGraph and bigWig with
+its signal family, format, byte size, and relative path.
 `10_reports/differential_occupancy_summary.tsv` similarly provides the stable
 all-variant differential table, including completed comparisons and explicit
 disabled, skipped, failed, or missing variants.

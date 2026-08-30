@@ -84,9 +84,15 @@ def main() -> int:
     parser.add_argument("--minimum-support", type=int, default=2)
     parser.add_argument("--allow-single", action="store_true")
     parser.add_argument("--require-all", action="store_true")
+    parser.add_argument("--cohort-id", help="process only this cohort (used by bounded workers)")
+    parser.add_argument("--status-file", type=Path)
     args = parser.parse_args()
     samples = read_manifest(args.sample_manifest)
     cohorts = read_manifest(args.cohort_manifest)
+    if args.cohort_id:
+        cohorts = [row for row in cohorts if row["cohort_id"] == args.cohort_id]
+        if not cohorts:
+            raise ValueError(f"cohort not found: {args.cohort_id}")
     failures = 0
     summary: list[dict[str, object]] = []
     for cohort in cohorts:
@@ -187,7 +193,8 @@ def main() -> int:
         summary.append({"cohort_id": cohort_id, "status": "SUCCESS", "total_samples": len(members),
                         "successful_peak_samples": len(peak_files), "excluded_samples": len(excluded),
                         "regions": len(regions), "reason": "."})
-    summary_path = args.output_root / "consensus_status.tsv"
+    summary_path = args.status_file or (args.output_root / "consensus_status.tsv")
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
     with summary_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=["cohort_id", "status", "total_samples",
                                 "successful_peak_samples", "excluded_samples", "regions", "reason"],

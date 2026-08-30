@@ -13,23 +13,24 @@ broad. The final decision must consider the metrics together.
 
 | Question | Metric or artifact | Input used | Main output |
 |---|---|---|---|
-| Are raw and trimmed reads technically sound? | FastQC and Trim Galore reports, adapter evidence | merged biological-library FASTQs | `01_fastq_qc/` |
+| Are raw and trimmed reads technically sound? | FastQC and Trim Galore reports, adapter evidence | technical FASTQ units when enabled, plus merged raw and trimmed biological-library FASTQs | `01_fastq_qc/` |
 | How many alignments remain? | Bowtie2 summary, `samtools flagstat`, `samtools stats` | raw alignment and analysis BAM | `03_alignment/metrics/`, `06_qc/alignment_and_complexity/` |
 | What did filtering remove? | q0/q30 and duplicate-retained/removed counts | four filtered BAM branches | `03_alignment/metrics/*.filter_counts.tsv` |
 | Are ambiguous alignments contributing to tracks? | MAPQ 0, MAPQ less than 30, Bowtie2 `XS` evidence | each coverage-policy BAM | `04_tracks/cpm/mapping_composition.tsv` |
 | Is the library complex? | Picard duplicate metrics, NRF, PBC1, PBC2, preseq | q30 duplicate-retained BAM | `03_alignment/metrics/`, `06_qc/alignment_and_complexity/` |
 | Is fragment structure plausible? | PE insert-length histogram | analysis BAM | `06_qc/fragment_length_and_periodicity/` |
 | Is ChIP enrichment detectable? | NSC/RSC cross-correlation | q30 duplicate-retained tagAlign | `06_qc/fragment_length_and_periodicity/*.phantompeak.tsv` |
-| Is signal concentrated in reproducible peaks? | FRiP against cohort consensus | target analysis BAM | `06_qc/frip_and_peak_reproducibility/*.frip.tsv` |
+| Is signal concentrated in called/reproducible peaks? | FRiP against sample primary peaks and cohort consensus | target analysis BAM | `06_qc/frip_and_peak_reproducibility/*.frip.tsv` |
 | Does target separate from background? | target/control fingerprint | matched analysis BAMs | `06_qc/controls/` |
 | Do biological replicates agree? | genome-bin Spearman heatmap and PCA | all target analysis BAMs | `06_qc/correlation_pca_fingerprint/` |
 | Is there aggregate TSS-proximal signal? | descriptive TSS profile | analysis CPM bigWig | `06_qc/tss_signal_profile/` |
 | Is fly calibration credible? | host/fly observations, fractions, scale factors, warnings | competitive-alignment branches | `06_qc/spikein/` |
 
 Raw and trimmed FastQC run after technical units have been concatenated into one
-biological library. This catches run-level adapter and quality problems but does
-not preserve separate post-merge FastQC for each lane. Investigate the original
-sequencing-run QC when a merged report suggests lane-specific failure.
+biological library. With `RUN_FASTQC_PER_TECHNICAL_UNIT=true`, raw FastQC also
+runs on every input unit before concatenation under `01_fastq_qc/raw_units/`.
+These unit-level results help localize lane/run failures; the merged raw and
+trimmed results describe the biological library actually passed downstream.
 
 Per-library QC and descriptive TSS profiles are bounded by
 `QC_SAMPLE_PARALLEL_JOBS`; each worker uses at most the larger of
@@ -73,11 +74,13 @@ Tn5 cut-site shift or require nucleosomal periodicity.
 
 ## FRiP and peak reproducibility
 
-FRiP is calculated for each target against the run's biological-support
-consensus, not against that sample's own peaks. This makes replicates comparable
-within the same universe, but its value depends on the consensus construction,
-peak class, caller, and filtering policy. Broad marks can have a lower or less
-directly comparable FRiP than focused marks.
+Two descriptive FRiP values are calculated for each eligible target: one
+against that sample's own primary peaks and one against the selected cohort's
+biological-support consensus. The consensus value makes samples comparable
+within the same peak universe, while the sample-primary value helps separate a
+weak individual call from loss during consensus construction. Both depend on
+peak class, caller, filtering policy, and cohort choice. Broad marks can have a
+lower or less directly comparable FRiP than focused marks.
 
 Review together:
 
@@ -139,8 +142,26 @@ when MultiQC is unavailable. Important stable tables include:
 
 - `10_reports/run_summary.tsv`;
 - `10_reports/warning_summary.tsv`;
-- `10_reports/coverage_mapping_composition.tsv`; and
+- `10_reports/qc_module_summary.tsv`;
+- `10_reports/fragment_qc_summary.tsv`;
+- `10_reports/cross_correlation_summary.tsv`;
+- `10_reports/coverage_mapping_composition.tsv`;
+- `10_reports/track_inventory.tsv`; and
 - `10_reports/differential_occupancy_summary.tsv`.
+
+Both HTML reports expose cohort/control policy, module execution evidence,
+alignment and filtering counts, library complexity, sample-primary and
+consensus FRiP, optional-module status, peak/reproducibility results, mapping
+composition, every retained track family, annotation, spike-in calibration,
+software versions, stage timing, resource budgets, warnings, and differential
+results when those outputs exist. MultiQC additionally parses native FastQC,
+Trim Galore, Bowtie2, Picard, samtools, and preseq outputs and embeds selected
+fingerprint, replicate-correlation/PCA, TSS, and differential diagnostic plots.
+
+`MAPQ 0`, `MAPQ < 30`, and Bowtie2 `XS`-tagged counts are deliberately reported
+as complementary ambiguity indicators. None is claimed to be a universal or
+aligner-independent count of true multimapping molecules. For PE data the
+mapping-composition table counts one representative alignment per fragment.
 
 Before accepting a cohort, record the project-specific reason for accepting or
 excluding each biological library. The workflow reports evidence but does not

@@ -31,7 +31,9 @@ bash "${ROOT}/scripts/generate_multiqc_report.sh" "$OUTPUT_DIR" "${OUTPUT_DIR}/1
 )
 
 for required in \
-    pipeline_report.html run_summary.tsv warning_summary.tsv differential_occupancy_summary.tsv \
+    pipeline_report.html run_summary.tsv warning_summary.tsv qc_module_summary.tsv \
+    fragment_qc_summary.tsv cross_correlation_summary.tsv coverage_mapping_composition.tsv \
+    track_inventory.tsv differential_occupancy_summary.tsv \
     chip2tracks_multiqc_report.html multiqc_status.tsv report_checksums.sha256; do
     [[ -s "${OUTPUT_DIR}/10_reports/${required}" ]] || {
         echo "ERROR: regenerated report artifact missing: $required" >&2

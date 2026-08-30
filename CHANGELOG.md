@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- Prepared the 0.2.0 operational-parity interface: `--version`, common
+  `consensus` stage naming, append-only console/command/workflow/stage telemetry,
+  per-row assay profiles, and a config-only canonical launch.
+- Adopted the 24-column samplesheet and centralized blacklist resolution.
+  Multiple cohorts are supported. `COHORT_MODE=automatic` isolates antibodies;
+  explicit `global-compatible` mode permits a researcher-defined shared peak
+  universe across factors/antibodies while preserving hard compatibility axes.
+- Changed shared-control and control-free peak calling to conservative opt-in
+  defaults; added technical-unit FastQC, cohort-local correlation/PCA, sample
+  and consensus FRiP, and explicit optional-QC status records.
+- Expanded both final reports with configured-versus-retained QC evidence,
+  fragment-length and NSC/RSC summaries, cohort/control policy, complete
+  bedGraph/bigWig inventories, mapping-ambiguity definitions, software
+  versions, stage timing, resource budgets, and selected cohort QC plots.
+- Added bounded consensus/IDR, normalized-track, differential, and annotation
+  workers; corrected alignment CPU accounting and completed resource rows.
+- Ported comprehensive per-sample/caller and consensus feature annotation,
+  composition summaries/plots, and compressed or uncompressed differential
+  result annotation.
+
 - Replaced the incomplete multi-line UCSC output with validated one-line
   bigWig custom-track descriptors for every retained track family. Separate
   family files, a grouped all-tracks file, a manifest, URL-mode status, and a

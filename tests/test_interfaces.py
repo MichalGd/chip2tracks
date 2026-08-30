@@ -70,8 +70,18 @@ class InterfaceTests(unittest.TestCase):
     def test_stage_timing_and_parallel_hashing_are_exposed(self) -> None:
         entrypoint = (ROOT / "chip2tracks.sh").read_text(encoding="utf-8")
         self.assertIn("stage_timing.tsv", entrypoint)
+        self.assertIn("workflow_events.tsv", entrypoint)
+        self.assertIn("command_events.tsv", entrypoint)
+        self.assertIn("--version", entrypoint)
+        self.assertNotIn(': > "$OUTPUT_DIR/00_metadata/commands.log"', entrypoint)
         self.assertIn("CHECKPOINT_PARALLEL_JOBS", entrypoint)
         self.assertIn("CHECKSUM_PARALLEL_JOBS", entrypoint)
+
+    def test_samplesheet_contract_is_24_columns_without_blacklist(self) -> None:
+        header = (ROOT / "config/samplesheet_template.csv").read_text(encoding="utf-8").strip().split(",")
+        self.assertEqual(len(header), 24)
+        self.assertNotIn("blacklist", header)
+        self.assertIn("assay_profile", header)
 
     def test_filtering_uses_indexed_marked_bam_for_region_selection(self) -> None:
         script = (ROOT / "scripts/mark_filter_batch.sh").read_text(encoding="utf-8")
@@ -141,11 +151,12 @@ class InterfaceTests(unittest.TestCase):
             self.assertIn("THREADS_FASTQC=10", resolved)
             self.assertIn("THREADS_TRIMGALORE=8", resolved)
             self.assertIn("PEAKCALL_FAILURE_POLICY=continue", resolved)
-            self.assertIn("ASSAY_PROFILE=chipseq", resolved)
+            self.assertNotIn("ASSAY_PROFILE=", resolved)
+            self.assertIn("COHORT_MODE=automatic", resolved)
             self.assertIn("ADAPTER_PRESET=auto", resolved)
-            self.assertIn("ALLOW_CONTROL_FREE_PEAKCALL=true", resolved)
+            self.assertIn("ALLOW_CONTROL_FREE_PEAKCALL=false", resolved)
             self.assertIn("SPIKEIN_MODE=none", resolved)
-            self.assertIn("ALLOW_SHARED_CONTROLS=true", resolved)
+            self.assertIn("ALLOW_SHARED_CONTROLS=false", resolved)
             self.assertIn("SE_SIGNAL_MODE=extend", resolved)
             self.assertIn("SE_FRAGMENT_LENGTH=auto", resolved)
             self.assertIn("PEAK_CALLERS=macs3,epic2", resolved)
@@ -248,7 +259,7 @@ class InterfaceTests(unittest.TestCase):
             out = Path(temporary) / "metadata"
             result = subprocess.run([
                 sys.executable, str(ROOT / "scripts/validate_samplesheet.py"),
-                str(ROOT / "config/examples/chipseq_pe.csv"), "--assay-profile", "chipseq",
+                str(ROOT / "config/examples/chipseq_pe.csv"), "--blacklist-map", "hg38=/refs/hg38.blacklist.bed",
                 "--spikein-mode", "none", "--spikein-reference-id", "", "--peak-callers", "macs3,epic2",
                 "--primary-peak-caller", "auto", "--output-dir", str(out),
             ], text=True, capture_output=True)
@@ -262,10 +273,18 @@ class InterfaceTests(unittest.TestCase):
 
     def test_control_free_single_end_broad_uses_epic2(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            out = Path(temporary) / "metadata"
+            directory = Path(temporary)
+            with (ROOT / "config/examples/chipseq_se.csv").open(encoding="utf-8", newline="") as handle:
+                source_rows = list(csv.DictReader(handle))
+            target = dict(source_rows[0]); target["control_id"] = ""
+            sheet = directory / "control_free.csv"
+            with sheet.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=target.keys(), lineterminator="\n")
+                writer.writeheader(); writer.writerow(target)
+            out = directory / "metadata"
             result = subprocess.run([
                 sys.executable, str(ROOT / "scripts/validate_samplesheet.py"),
-                str(ROOT / "config/examples/chipseq_se.csv"), "--assay-profile", "chipseq",
+                str(sheet), "--blacklist-map", "hg38=/refs/hg38.blacklist.bed",
                 "--spikein-mode", "none", "--spikein-reference-id", "",
                 "--peak-callers", "macs3,epic2", "--allow-control-free",
                 "--primary-peak-caller", "auto", "--output-dir", str(out),
@@ -276,7 +295,7 @@ class InterfaceTests(unittest.TestCase):
             self.assertEqual(row["control_key"], ".")
             self.assertEqual(row["primary_peak_caller"], "epic2")
 
-    def test_different_antibodies_require_separate_runs(self) -> None:
+    def test_cohort_mode_controls_cross_antibody_consensus(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary); source = ROOT / "config/examples/chipseq_pe.csv"
             with source.open(encoding="utf-8", newline="") as handle:
@@ -291,17 +310,30 @@ class InterfaceTests(unittest.TestCase):
                 writer.writeheader(); writer.writerows([target, second, rows[1]])
             out = directory / "metadata"
             rejected = subprocess.run([sys.executable, str(ROOT / "scripts/validate_samplesheet.py"), str(sheet),
-                "--assay-profile", "chipseq", "--spikein-mode", "none", "--spikein-reference-id", "", "--peak-callers", "macs3,epic2",
+                "--blacklist-map", "hg38=/refs/hg38.blacklist.bed", "--spikein-mode", "none", "--spikein-reference-id", "", "--peak-callers", "macs3,epic2",
                 "--primary-peak-caller", "auto", "--output-dir", str(directory / "rejected")],
                 text=True, capture_output=True)
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn("assigned to multiple targets", rejected.stderr)
             result = subprocess.run([sys.executable, str(ROOT / "scripts/validate_samplesheet.py"), str(sheet),
-                "--assay-profile", "chipseq", "--spikein-mode", "none", "--spikein-reference-id", "", "--peak-callers", "macs3,epic2",
+                "--blacklist-map", "hg38=/refs/hg38.blacklist.bed", "--spikein-mode", "none", "--spikein-reference-id", "", "--peak-callers", "macs3,epic2",
                 "--primary-peak-caller", "auto", "--allow-shared-controls", "--output-dir", str(out)],
                 text=True, capture_output=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("one compatible target/peak universe", result.stderr)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with (out / "cohort_manifest.tsv").open(encoding="utf-8", newline="") as handle:
+                automatic = list(csv.DictReader(handle, delimiter="\t"))
+            self.assertEqual(len(automatic), 2)
+            global_out = directory / "global_metadata"
+            global_result = subprocess.run([sys.executable, str(ROOT / "scripts/validate_samplesheet.py"), str(sheet),
+                "--blacklist-map", "hg38=/refs/hg38.blacklist.bed", "--spikein-mode", "none", "--spikein-reference-id", "", "--peak-callers", "macs3,epic2",
+                "--primary-peak-caller", "auto", "--allow-shared-controls", "--cohort-mode", "global-compatible",
+                "--output-dir", str(global_out)], text=True, capture_output=True)
+            self.assertEqual(global_result.returncode, 0, global_result.stderr)
+            with (global_out / "cohort_manifest.tsv").open(encoding="utf-8", newline="") as handle:
+                global_cohorts = list(csv.DictReader(handle, delimiter="\t"))
+            self.assertEqual(len(global_cohorts), 1)
+            self.assertEqual(global_cohorts[0]["factor"], "MULTIPLE")
+            self.assertEqual(global_cohorts[0]["antibody_id"], "MULTIPLE")
 
 
 if __name__ == "__main__":

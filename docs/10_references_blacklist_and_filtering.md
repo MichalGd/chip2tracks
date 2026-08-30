@@ -48,13 +48,11 @@ construction are described by
 and maintained lists are available from the
 [Boyle Lab blacklist repository](https://github.com/Boyle-Lab/Blacklist).
 
-The samplesheet `blacklist` column is required on every row and is the path
-actually used to filter that biological library. Use the same validated,
-assembly-matched blacklist for every target and control in one samplesheet.
-The corresponding `BLACKLIST_<GENOME>` config value records the run-level
-reference. A custom per-row path is technically possible, but mixing blacklist
-definitions within a comparison changes the observable universe and is not a
-valid default analysis design.
+The resolved sample manifest `blacklist` field is populated from the run's
+`BLACKLIST_<GENOME>` setting. Blacklist is deliberately not a user-editable
+samplesheet column. The resolved path is the one actually used to filter every
+library of that genome. This prevents targets and controls in a comparison from
+silently using different artifact masks.
 
 For an unlisted custom genome:
 
