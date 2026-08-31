@@ -4,7 +4,7 @@ title: "chip2tracks"
 type: software
 authors:
   - name: "MichalGd"
-version: 0.2.0
-date-released: 2026-08-30
+version: 0.2.2
+date-released: 2026-08-31
 license: MIT
 repository-code: "https://github.com/MichalGd/chip2tracks"
