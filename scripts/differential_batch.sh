@@ -11,6 +11,23 @@ status_dir="${OUTPUT_DIR}/08_differential/.cohort_status"
 mkdir -p "${OUTPUT_DIR}/08_differential" "${OUTPUT_DIR}/logs/differential" "$status_dir"
 rm -f -- "$status_dir"/*.tsv 2>/dev/null || true
 
+# Differential count tables are intentionally absent when every differential
+# module is disabled. Treat that configuration as a successful no-op before
+# checking module inputs, and clear cohort-level markers left by an interrupted
+# or older run of this stage.
+if ! is_true "$RUN_DESEQ2_ENRICHMENT" && \
+        ! is_true "$RUN_DIFFBIND" && \
+        ! is_true "$RUN_TARGET_CONTROL_INTERACTION"; then
+    while IFS=$'\t' read -r cohort cohort_key genome assay_profile factor antibody_id layout target_class duplicate_policy caller peak_class n_samples sample_keys conditions; do
+        [[ "$cohort" == "cohort_id" ]] && continue
+        root="${OUTPUT_DIR}/08_differential/${cohort}/${peak_class}"
+        rm -f -- "$root/SKIPPED.json" "$root/FAILED.json"
+    done < "$COHORT_MANIFEST"
+    printf 'status\tfailed_modules\tskipped_cohorts\tparallel_jobs\nSUCCESS\t0\t0\t%s\n' \
+        "$DIFFERENTIAL_PARALLEL_JOBS" > "${OUTPUT_DIR}/08_differential/stage_status.tsv"
+    exit 0
+fi
+
 differential_worker() {
     local cohort="$1" caller="$2" peak_class="$3" failures=0 skips=0
     local consensus_dir consensus root counts upstream_skip spike_file

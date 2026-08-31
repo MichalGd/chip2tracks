@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Fixed fully disabled differential analysis being reported as nine missing-count
+  failures in a nine-cohort run. The stage now records a successful no-op before
+  checking differential-only count tables and removes stale cohort-level failure
+  markers when the corrected stage is resumed.
+- Added regression coverage proving that absent counts are accepted only when
+  every differential module is disabled and remain terminal when a count-based
+  analysis is enabled.
 - Prepared the 0.2.0 operational-parity interface: `--version`, common
   `consensus` stage naming, append-only console/command/workflow/stage telemetry,
   per-row assay profiles, and a config-only canonical launch.

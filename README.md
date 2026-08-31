@@ -1,7 +1,7 @@
 # chip2tracks
 
 `chip2tracks` is a restartable, samplesheet-driven Bash workflow for two
-explicit assay profiles: conventional ChIP-seq and ChIPmentation. Version 0.2.1
+explicit assay profiles: conventional ChIP-seq and ChIPmentation. Version 0.2.2
 is derived from the local `cutnrun2tracks` 0.2.8 execution engine but removes
 CUT&RUN/CUT&Tag-specific peak and fragment assumptions.
 
