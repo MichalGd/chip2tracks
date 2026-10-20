@@ -23,9 +23,17 @@ chip2tracks --config /project/config/config.conf --from-stage consensus
 The deprecated name `reproducibility` is accepted as a temporary alias for
 `consensus`.
 
-A failed reuse means an earlier checkpoint or one of its hashed outputs is
-missing or changed. Restart from that earlier stage; do not edit checkpoint
-JSON. Automatic cleanup invalidates affected checkpoints deliberately.
+A failed reuse can mean changed inputs/settings/code, missing output artifacts,
+or an old checkpoint without producing-input provenance. The diagnostic names
+the earliest incompatible stage. Restart at or before that stage; do not edit
+checkpoint JSON. An ordinary legacy retry stops before replacing the historical
+metadata. Automatic cleanup invalidates affected checkpoints deliberately.
+
+If final preprocessing MultiQC failed after library work completed, correct the
+executable/environment and retry with the same config and no `--from-stage`.
+Validated library records are then reused and aggregation is retried. Check
+`00_metadata/multiqc_preflight.log` for the selected executable and startup
+errors. An explicit `--from-stage preprocess` intentionally forces library work.
 
 ## Frequent causes
 

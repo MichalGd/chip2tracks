@@ -92,6 +92,16 @@ EOF
 
 cat > "$fake_bin/picard" <<'EOF'
 #!/usr/bin/env bash
+if [[ "${ALLOW_PICARD:-false}" == "true" ]]; then
+    for argument in "$@"; do
+        case "$argument" in I=*) input="${argument#I=}";; O=*) output="${argument#O=}";; M=*) metrics="${argument#M=}";; esac
+    done
+    cp "$input" "$output"
+    printf 'new index\n' > "$output.bai"
+    printf 'new metrics\n' > "$metrics"
+    printf 'picard ran\n' >> "$PICARD_TEST_LOG"
+    exit 0
+fi
 echo "ERROR: Picard should not run when the marked BAM is reusable" >&2
 exit 98
 EOF
@@ -130,6 +140,14 @@ CANONICAL_CONTIGS_HG38=$canonical
 EOF
 
 log="$temporary/filtering.log"
+# Only a marked BAM whose producing input and outputs are recorded is reusable.
+marked_signature="$(PATH="$fake_bin:$PATH" python3 "$ROOT/scripts/recovery.py" marked \
+    --config "$config" --bam "$output/03_alignment/sorted/${key}.host.sorted.bam")"
+python3 "$ROOT/scripts/checkpoint.py" write --checkpoint "$output/.checkpoints/marked/${key}.json" \
+    --stage "marked:$key" --signature "$marked_signature" \
+    --outputs "$output/03_alignment/marked/${key}.host.marked.bam" \
+        "$output/03_alignment/marked/${key}.host.marked.bam.bai" \
+        "$output/03_alignment/metrics/${key}.duplicate_metrics.txt"
 PATH="$fake_bin:$PATH" C2T_CONFIG="$config" \
     bash "$ROOT/scripts/mark_filter_batch.sh" > "$log" 2>&1
 
@@ -152,5 +170,17 @@ if grep -q 'tmp: unbound variable' "$log"; then
 fi
 grep -q "$key"$'\t2\t1\t2\t1\tretain' \
     "$output/03_alignment/metrics/${key}.filter_counts.tsv"
+
+# Changed alignment content must invalidate a perfectly readable old marked BAM.
+printf 'changed alignment\n' > "$output/03_alignment/sorted/${key}.host.sorted.bam"
+PATH="$fake_bin:$PATH" C2T_CONFIG="$config" ALLOW_PICARD=true PICARD_TEST_LOG="$temporary/picard_calls" \
+    bash "$ROOT/scripts/mark_filter_batch.sh" > "$log" 2>&1
+[[ "$(wc -l < "$temporary/picard_calls")" -eq 1 ]]
+cmp "$output/03_alignment/sorted/${key}.host.sorted.bam" "$output/03_alignment/marked/${key}.host.marked.bam"
+# Without provenance even structurally valid legacy marked files must be rebuilt.
+rm "$output/.checkpoints/marked/${key}.json"
+PATH="$fake_bin:$PATH" C2T_CONFIG="$config" ALLOW_PICARD=true PICARD_TEST_LOG="$temporary/picard_calls" \
+    bash "$ROOT/scripts/mark_filter_batch.sh" > "$log" 2>&1
+[[ "$(wc -l < "$temporary/picard_calls")" -eq 2 ]]
 
 echo "Filtering cleanup-scope regression test passed"

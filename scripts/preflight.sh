@@ -4,6 +4,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 require_config
+probe_multiqc
 
 required=(python3 bowtie2 samtools bedtools "${PICARD_COMMAND}" "${MACS3_COMMAND}" bamCoverage Rscript)
 needs_epic2=false
@@ -100,6 +101,7 @@ mkdir -p "${OUTPUT_DIR}/00_metadata"
 versions="${OUTPUT_DIR}/00_metadata/software_versions.tsv"
 printf 'tool\tversion\n' > "$versions"
 version_commands=(python3 bowtie2 samtools bedtools bamCoverage Rscript "$MACS3_COMMAND")
+is_true "$RUN_MULTIQC" && version_commands+=(multiqc)
 is_true "$TRIM_ADAPTERS" && version_commands+=(trim_galore cutadapt)
 is_true "$needs_epic2" && version_commands+=("$EPIC2_COMMAND")
 is_true "$RUN_IDR" && version_commands+=("$IDR_COMMAND")

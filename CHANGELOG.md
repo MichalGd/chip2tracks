@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.3 - 2026-10-20
+
+- Corrected recovery to use stage-specific input/code fingerprints and upstream
+  completion generations. Invocation IDs, resource settings, installation paths
+  and Python caches no longer invalidate compatible scientific work; explicit
+  `--from-stage` reuse cannot override incompatible inputs or legacy provenance.
+- Recorded per-library preprocessing completion before final MultiQC aggregation,
+  executed enabled MultiQC at startup, and validated its preprocessing report.
+  A normal aggregation retry reuses finished libraries; corrupt outputs rebuild
+  only the affected library. Explicit preprocessing restarts still force workers.
+- Bound marked-BAM reuse to the current sorted BAM and duplicate-marking settings,
+  preserved analysis symlink identities/indexes in checkpoints, included FastQC
+  outputs in preprocessing checkpoints, and archived prior run metadata.
+- Added failure/retry, hotfix/relocation, changed-input/reference/parameter,
+  downstream invalidation, marked-BAM provenance and output-contract regressions.
+
+- Clarified the existing shared-server installation paths, code-only updates,
+  Linux regression validation, and legacy-checkpoint compatibility precautions.
+
 ## Unreleased
 
 - Fixed fully disabled differential analysis being reported as nine missing-count

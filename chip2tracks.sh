@@ -61,8 +61,13 @@ config_args=("$CONFIG" --template "${SCRIPT_DIR}/config/config.conf.template")
 python3 "${SCRIPT_DIR}/scripts/validate_config.py" "${config_args[@]}" --write-shell "$temporary/resolved.conf"
 # shellcheck disable=SC1090
 source "$temporary/resolved.conf"
+if ! is_true "$PLAN_ONLY" && ! is_true "$PREFLIGHT_ONLY"; then
+    python3 "$SCRIPT_DIR/scripts/recovery.py" guard-legacy --checkpoints "$OUTPUT_DIR/.checkpoints" \
+        --from-stage "$FROM_STAGE"
+fi
 python3 "${SCRIPT_DIR}/scripts/sanitize_text_inputs.py" "$SAMPLESHEET"
 mkdir -p "$OUTPUT_DIR/00_metadata" "$OUTPUT_DIR/.checkpoints" "$OUTPUT_DIR/logs"
+python3 "${SCRIPT_DIR}/scripts/recovery.py" archive "$OUTPUT_DIR"
 python3 "${SCRIPT_DIR}/scripts/validate_config.py" "${config_args[@]}" \
     --write-shell "$OUTPUT_DIR/00_metadata/resolved_config.conf" --write-tsv "$OUTPUT_DIR/00_metadata/resolved_config.tsv"
 export CHIP2T_CONFIG="$OUTPUT_DIR/00_metadata/resolved_config.conf"
@@ -116,11 +121,17 @@ if is_true "$PLAN_ONLY"; then
     exit 0
 fi
 
+# Probe on every invocation, including when a previous preflight is reusable.
+source "$SCRIPT_DIR/scripts/lib/common.sh"
+probe_multiqc
 python3 "${SCRIPT_DIR}/scripts/reference_manifest.py" "$C2T_CONFIG" \
     "$OUTPUT_DIR/00_metadata/sample_manifest.tsv" "$OUTPUT_DIR/00_metadata/reference_manifest.tsv"
+python3 "$SCRIPT_DIR/scripts/recovery.py" prepare --root "$SCRIPT_DIR" --config "$C2T_CONFIG" \
+    --output "$OUTPUT_DIR/00_metadata/recovery_manifest.json"
 RUN_SIGNATURE="$(python3 "${SCRIPT_DIR}/scripts/checkpoint.py" signature --jobs "$CHECKPOINT_PARALLEL_JOBS" \
     "$SCRIPT_DIR/VERSION" "$SCRIPT_DIR/scripts" "$SCRIPT_DIR/common" "$C2T_CONFIG" \
-    "$OUTPUT_DIR/00_metadata/sanitized_samplesheet.csv" "$OUTPUT_DIR/00_metadata/reference_manifest.tsv")"
+    "$OUTPUT_DIR/00_metadata/sanitized_samplesheet.csv" "$OUTPUT_DIR/00_metadata/reference_manifest.tsv" \
+    "$OUTPUT_DIR/00_metadata/recovery_manifest.json")"
 printf 'run_id\tworkflow_version\trun_signature\tassay_profiles\tcohort_mode\tspikein_mode\n%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$RUN_ID" "$VERSION" "$RUN_SIGNATURE" "$RUN_ASSAY_PROFILES" "$COHORT_MODE" "$SPIKEIN_MODE" > "$OUTPUT_DIR/00_metadata/run_manifest.tsv"
 if is_true "$WRITE_COMMAND_LOG"; then
@@ -190,31 +201,43 @@ run_stage() {
     shift 2
     local outputs=("$@")
     local start_utc start_epoch elapsed status
+    local stage_signature owned_output_text
+    local -a owned_outputs
     start_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     start_epoch="$(date -u +%s)"
     CURRENT_STAGE="$stage"
+    stage_signature="$(python3 "$SCRIPT_DIR/scripts/recovery.py" stage \
+        --manifest "$OUTPUT_DIR/00_metadata/recovery_manifest.json" --stage "$stage" \
+        --checkpoints "$OUTPUT_DIR/.checkpoints")" || return 1
     if [[ "$stage" == "$FROM_STAGE" ]]; then
         before_from_stage=false
         force=true
     fi
-    if is_true "$before_from_stage"; then
+    # Preflight can safely re-audit changed settings; it produces no analysis
+    # inputs. Scientific stages before --from-stage must remain compatible.
+    if is_true "$before_from_stage" && [[ "$stage" != "preflight" ]]; then
         if python3 "$SCRIPT_DIR/scripts/checkpoint.py" adopt --checkpoint "$checkpoint" \
-            --stage "$stage" --signature "$RUN_SIGNATURE" --jobs "$CHECKPOINT_PARALLEL_JOBS"; then
+            --stage "$stage" --signature "$stage_signature" --jobs "$CHECKPOINT_PARALLEL_JOBS" && \
+            python3 "$SCRIPT_DIR/scripts/recovery.py" validate-stage --config "$C2T_CONFIG" --stage "$stage"; then
             echo "=== [$stage] REUSED: validated prior-stage outputs (--from-stage $FROM_STAGE) ==="
             status=REUSED
         else
             record_stage_timing "$stage" FAILED_REUSE "$start_utc" "$start_epoch" >/dev/null
             record_event "$stage" stage FAILED_REUSE 1 0 "invalid or missing prior-stage checkpoint"
-            echo "ERROR: cannot reuse invalid or missing prior-stage checkpoint: $stage" >&2
+            echo "ERROR: cannot reuse $stage: incompatible inputs/code, invalid outputs, or missing provenance. Restart at or before $stage; do not rewrite checkpoint signatures." >&2
             exit 1
         fi
     elif [[ "$stage" != "cleanup" ]] && ! is_true "$force" && \
             python3 "$SCRIPT_DIR/scripts/checkpoint.py" check --checkpoint "$checkpoint" --stage "$stage" \
-                --signature "$RUN_SIGNATURE" --jobs "$CHECKPOINT_PARALLEL_JOBS"; then
+                --signature "$stage_signature" --jobs "$CHECKPOINT_PARALLEL_JOBS" && \
+            python3 "$SCRIPT_DIR/scripts/recovery.py" validate-stage --config "$C2T_CONFIG" --stage "$stage"; then
         echo "=== [$stage] SKIPPED: valid signature-and-output checkpoint ==="
         status=SKIPPED
     else
         echo "=== [$stage] START === $start_utc"
+        # A failed forced attempt must never leave an earlier success marker
+        # available for a later invocation to mistake for this attempt's result.
+        rm -f -- "$checkpoint"
         record_event "$stage" stage START 0 0 "$command"
         if ! bash "$command"; then
             elapsed="$(record_stage_timing "$stage" FAILED "$start_utc" "$start_epoch")"
@@ -222,8 +245,23 @@ run_stage() {
             echo "=== [$stage] FAILED === elapsed=${elapsed}s" >&2
             return 1
         fi
+        if ! owned_output_text="$(python3 "$SCRIPT_DIR/scripts/recovery.py" validate-stage \
+            --config "$C2T_CONFIG" --stage "$stage" --print-paths)"; then
+            elapsed="$(record_stage_timing "$stage" FAILED_CHECKPOINT "$start_utc" "$start_epoch")"
+            record_event "$stage" stage FAILED_CHECKPOINT 1 "$elapsed" "required output validation failed"
+            echo "=== [$stage] FAILED OUTPUT VALIDATION ===" >&2
+            return 1
+        fi
+        # Shared directory trees contain later-stage artifacts. Track producer
+        # outputs explicitly, while annotation also owns its derivatives in 08/.
+        if [[ -n "$owned_output_text" && ( "$stage" == alignment || "$stage" == filtering || "$stage" == annotation ) ]]; then
+            mapfile -t owned_outputs <<< "$owned_output_text"
+            if [[ "$stage" == annotation ]]; then outputs+=("${owned_outputs[@]}")
+            else outputs=("${owned_outputs[@]}"); fi
+        fi
         if ! python3 "$SCRIPT_DIR/scripts/checkpoint.py" write --checkpoint "$checkpoint" --stage "$stage" \
-                --signature "$RUN_SIGNATURE" --outputs "${outputs[@]}" --jobs "$CHECKPOINT_PARALLEL_JOBS"; then
+                --signature "$stage_signature" --run-signature "$RUN_SIGNATURE" \
+                --outputs "${outputs[@]}" --jobs "$CHECKPOINT_PARALLEL_JOBS"; then
             elapsed="$(record_stage_timing "$stage" FAILED_CHECKPOINT "$start_utc" "$start_epoch")"
             record_event "$stage" stage FAILED_CHECKPOINT 1 "$elapsed" "checkpoint creation failed"
             echo "=== [$stage] FAILED CHECKPOINT === elapsed=${elapsed}s" >&2
@@ -237,11 +275,15 @@ run_stage() {
     if [[ "$stage" == "$STOP_AFTER" ]]; then echo "Stopped after $stage"; exit 0; fi
 }
 
-run_stage preflight "$SCRIPT_DIR/scripts/preflight.sh" "$OUTPUT_DIR/00_metadata/preflight_status.tsv"
+export CHIP2T_FORCE_PREPROCESS=false
+[[ "$FROM_STAGE" == "preflight" || "$FROM_STAGE" == "preprocess" ]] && export CHIP2T_FORCE_PREPROCESS=true
+run_stage preflight "$SCRIPT_DIR/scripts/preflight.sh" "$OUTPUT_DIR/00_metadata/preflight_status.tsv" \
+    "$OUTPUT_DIR/00_metadata/software_versions.tsv" "$OUTPUT_DIR/00_metadata/resource_budget.tsv"
 is_true "$PREFLIGHT_ONLY" && { echo "Preflight complete"; exit 0; }
-run_stage preprocess "$SCRIPT_DIR/scripts/preprocess_batch.sh" "$OUTPUT_DIR/02_trimmed_fastq"
+run_stage preprocess "$SCRIPT_DIR/scripts/preprocess_batch.sh" "$OUTPUT_DIR/02_trimmed_fastq" "$OUTPUT_DIR/01_fastq_qc"
 run_stage alignment "$SCRIPT_DIR/scripts/align_batch.sh" "$OUTPUT_DIR/03_alignment/sorted" "$OUTPUT_DIR/03_alignment/spikein"
-run_stage filtering "$SCRIPT_DIR/scripts/mark_filter_batch.sh" "$OUTPUT_DIR/03_alignment/analysis" "$OUTPUT_DIR/03_alignment/filtered"
+run_stage filtering "$SCRIPT_DIR/scripts/mark_filter_batch.sh" "$OUTPUT_DIR/03_alignment/analysis" "$OUTPUT_DIR/03_alignment/filtered" \
+    "$OUTPUT_DIR/03_alignment/marked" "$OUTPUT_DIR/03_alignment/metrics"
 run_stage cpm "$SCRIPT_DIR/scripts/coverage_batch.sh" "$OUTPUT_DIR/04_tracks/cpm"
 run_stage peakcalling "$SCRIPT_DIR/scripts/peakcall_batch.sh" "$OUTPUT_DIR/05_peaks/per_sample"
 run_stage consensus "$SCRIPT_DIR/scripts/reproducibility_batch.sh" \
@@ -269,8 +311,11 @@ if is_true "$WRITE_FILE_CHECKSUMS"; then
 else
     printf 'checksums disabled\n' > "$OUTPUT_DIR/00_metadata/final_checksums.sha256"
 fi
+finalize_signature="$(python3 "$SCRIPT_DIR/scripts/recovery.py" stage \
+    --manifest "$OUTPUT_DIR/00_metadata/recovery_manifest.json" --stage finalize --checkpoints "$OUTPUT_DIR/.checkpoints")"
 if ! python3 "$SCRIPT_DIR/scripts/checkpoint.py" write --checkpoint "$OUTPUT_DIR/.checkpoints/finalize.json" --stage finalize \
-        --signature "$RUN_SIGNATURE" --outputs "$OUTPUT_DIR/00_metadata/final_checksums.sha256" \
+        --signature "$finalize_signature" --run-signature "$RUN_SIGNATURE" \
+        --outputs "$OUTPUT_DIR/00_metadata/final_checksums.sha256" \
         --jobs "$CHECKPOINT_PARALLEL_JOBS"; then
     finalize_elapsed="$(record_stage_timing finalize FAILED_CHECKPOINT "$finalize_start_utc" "$finalize_start_epoch")"
     echo "=== [finalize] FAILED CHECKPOINT === elapsed=${finalize_elapsed}s" >&2

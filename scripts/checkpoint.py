@@ -42,7 +42,7 @@ def hashes(paths: list[Path], jobs: int) -> list[str]:
 
 def signature(paths: list[Path], jobs: int = 1) -> str:
     digest = hashlib.sha256()
-    files = expanded(paths)
+    files = [p for p in expanded(paths) if "__pycache__" not in p.parts and p.suffix != ".pyc"]
     for path, checksum in zip(files, hashes(files, jobs), strict=True):
         digest.update(str(path).encode())
         digest.update(b"\0")
@@ -51,12 +51,27 @@ def signature(paths: list[Path], jobs: int = 1) -> str:
     return digest.hexdigest()
 
 
-def snapshot(paths: list[Path], jobs: int = 1) -> list[dict[str, object]]:
+def snapshot(paths: list[Path], jobs: int = 1, exclude_annotations: bool = False) -> list[dict[str, object]]:
     result = []
-    files = expanded(paths)
+    # Preserve the requested path, including symlinks: resolving here used to
+    # validate a BAM target even when its required analysis link was missing.
+    files = []
+    for path in paths:
+        if path.is_dir():
+            files.extend(item.absolute() for item in path.rglob("*") if item.is_file())
+        elif path.is_file():
+            files.append(path.absolute())
+        else:
+            raise FileNotFoundError(path)
+    files = sorted(set(files), key=str)
+    if exclude_annotations:
+        files = [path for path in files if ".annotated.tsv" not in path.name]
     for path, checksum in zip(files, hashes(files, jobs), strict=True):
         stat = path.stat()
-        result.append({"path": str(path), "size": stat.st_size, "sha256": checksum})
+        item = {"path": str(path), "size": stat.st_size, "sha256": checksum}
+        if path.is_symlink():
+            item["symlink"] = os.readlink(path)
+        result.append(item)
     if not result:
         raise ValueError("checkpoint has no output files")
     return result
@@ -68,13 +83,17 @@ def command_signature(args: argparse.Namespace) -> int:
 
 
 def command_write(args: argparse.Namespace) -> int:
+    # Annotation owns its derivatives even when they live beside model results.
+    outputs = snapshot(args.outputs, args.jobs, exclude_annotations=args.stage == "differential")
     payload = {
-        "schema": 1,
+        "schema": 2,
         "stage": args.stage,
         "signature": args.signature,
         "completed_utc": datetime.now(timezone.utc).isoformat(),
-        "outputs": snapshot(args.outputs, args.jobs),
+        "outputs": outputs,
     }
+    if getattr(args, "run_signature", None):
+        payload["producing_run_signature"] = args.run_signature
     args.checkpoint.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.checkpoint.with_suffix(args.checkpoint.suffix + f".tmp.{os.getpid()}")
     temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -85,40 +104,42 @@ def command_write(args: argparse.Namespace) -> int:
 def command_check(args: argparse.Namespace) -> int:
     try:
         payload = json.loads(args.checkpoint.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("checkpoint must be a JSON object")
         if payload.get("signature") != args.signature or payload.get("stage") != args.stage:
+            print(f"CHECKPOINT: {args.stage}: incompatible input/code fingerprint (legacy checkpoints require revalidation)", file=sys.stderr)
             return 1
         outputs = payload.get("outputs", [])
         output_paths = [Path(item["path"]) for item in outputs]
         if any(not path.is_file() for path in output_paths):
+            missing = next(path for path in output_paths if not path.is_file())
+            print(f"CHECKPOINT: {args.stage}: missing output: {missing}", file=sys.stderr)
             return 1
         output_hashes = hashes(output_paths, args.jobs)
         for item, path, checksum in zip(outputs, output_paths, output_hashes, strict=True):
+            if "symlink" in item and (not path.is_symlink() or os.readlink(path) != item["symlink"]):
+                print(f"CHECKPOINT: {args.stage}: changed analysis link: {path}", file=sys.stderr)
+                return 1
             if path.stat().st_size != item["size"] or checksum != item["sha256"]:
+                print(f"CHECKPOINT: {args.stage}: changed output: {path}", file=sys.stderr)
                 return 1
         return 0 if outputs else 1
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        print(f"CHECKPOINT: {args.stage}: missing or invalid checkpoint: {exc}", file=sys.stderr)
         return 1
 
 
 def command_adopt(args: argparse.Namespace) -> int:
-    """Adopt validated prior-stage outputs into a new run signature."""
+    """Explicit resume cannot override scientific input/code compatibility."""
+    if command_check(args) != 0:
+        return 1
     try:
         payload = json.loads(args.checkpoint.read_text(encoding="utf-8"))
+        if payload.get("schema") != 2:
+            print(f"CHECKPOINT: {args.stage}: legacy checkpoint cannot be adopted without input provenance", file=sys.stderr)
+            return 1
         if payload.get("stage") != args.stage:
             return 1
-        outputs = payload.get("outputs", [])
-        if not outputs:
-            return 1
-        output_paths = [Path(item["path"]) for item in outputs]
-        if any(not path.is_file() for path in output_paths):
-            return 1
-        output_hashes = hashes(output_paths, args.jobs)
-        for item, path, checksum in zip(outputs, output_paths, output_hashes, strict=True):
-            if (
-                path.stat().st_size != item["size"]
-                or checksum != item["sha256"]
-            ):
-                return 1
         previous = payload.get("signature")
         adopted_utc = datetime.now(timezone.utc).isoformat()
         payload.setdefault("signature_adoptions", []).append(
@@ -129,7 +150,6 @@ def command_adopt(args: argparse.Namespace) -> int:
                 "reason": "explicit --from-stage prior-stage reuse",
             }
         )
-        payload["signature"] = args.signature
         temporary = args.checkpoint.with_suffix(
             args.checkpoint.suffix + f".tmp.{os.getpid()}"
         )
@@ -151,6 +171,7 @@ def main() -> int:
     write.add_argument("--checkpoint", type=Path, required=True)
     write.add_argument("--stage", required=True)
     write.add_argument("--signature", required=True)
+    write.add_argument("--run-signature", help="full producing-run provenance; not a reuse key")
     write.add_argument("--outputs", nargs="+", type=Path, required=True)
     write.add_argument("--jobs", type=int, default=1)
     write.set_defaults(function=command_write)
