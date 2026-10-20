@@ -61,14 +61,26 @@ worker() {
     local metrics="${OUTPUT_DIR}/03_alignment/metrics/${key}.duplicate_metrics.txt"
     [[ -s "$sorted" ]] || die "sorted BAM missing: $sorted"
     local picard_log="${OUTPUT_DIR}/logs/filtering/${key}.picard.log"
+    local completion="${OUTPUT_DIR}/.checkpoints/marked/${key}.json" marked_signature marked_index
+    marked_signature="$(python3 "$SCRIPT_DIR/recovery.py" marked --config "$C2T_CONFIG" --bam "$sorted")"
     if [[ -s "$marked" && -s "$metrics" ]] && \
+        python3 "$SCRIPT_DIR/checkpoint.py" check --checkpoint "$completion" --stage "marked:$key" \
+            --signature "$marked_signature" --jobs "${CHECKPOINT_PARALLEL_JOBS:-1}" && \
         samtools quickcheck "$marked" && samtools idxstats "$marked" >/dev/null 2>&1; then
         note "Reusing validated marked BAM for $key" >> "$picard_log"
     else
+        rm -f -- "$completion"
         rm -f "$marked" "${marked}.bai" "${marked%.bam}.bai" "$metrics"
         run_logged "$PICARD_COMMAND" MarkDuplicates I="$sorted" O="$marked" M="$metrics" \
             REMOVE_DUPLICATES=false ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT CREATE_INDEX=true \
             >"$picard_log" 2>&1
+        samtools quickcheck "$marked"
+        samtools idxstats "$marked" >/dev/null
+        marked_index="${marked}.bai"
+        [[ -f "$marked_index" ]] || marked_index="${marked%.bam}.bai"
+        python3 "$SCRIPT_DIR/checkpoint.py" write --checkpoint "$completion" --stage "marked:$key" \
+            --signature "$marked_signature" --outputs "$marked" "$marked_index" "$metrics" \
+            --jobs "${CHECKPOINT_PARALLEL_JOBS:-1}"
     fi
     samtools quickcheck "$marked"
     samtools idxstats "$marked" >/dev/null

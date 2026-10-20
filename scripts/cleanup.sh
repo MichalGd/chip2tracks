@@ -27,7 +27,7 @@ remove_child() {
 
 is_true "$KEEP_TRIMMED_FASTQ" || remove_child "${OUTPUT_DIR}/02_trimmed_fastq" preprocess
 is_true "$KEEP_RAW_ALIGNMENT_BAMS" || remove_child "${OUTPUT_DIR}/03_alignment/sorted" alignment
-is_true "$KEEP_MARKED_BAMS" || remove_child "${OUTPUT_DIR}/03_alignment/marked"
+is_true "$KEEP_MARKED_BAMS" || remove_child "${OUTPUT_DIR}/03_alignment/marked" filtering
 if ! is_true "$KEEP_FILTERED_BAMS"; then
     # Preserve self-contained analysis BAMs before removing their symlink targets.
     find "${OUTPUT_DIR}/03_alignment/analysis" -type l -name '*.bam' -print | while read -r link; do

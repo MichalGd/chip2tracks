@@ -27,4 +27,12 @@ test ! -e "$OUTPUT/.checkpoints/preprocess.json"
 test ! -e "$OUTPUT/.checkpoints/alignment.json"
 test -e "$OUTPUT/.checkpoints/filtering.json"
 grep -q 'invalidated_after_intermediate_cleanup' "$OUTPUT/00_metadata/cleanup_manifest.tsv"
+
+# Marked BAMs now belong to the filtering checkpoint's required output contract.
+mkdir -p "$OUTPUT/03_alignment/marked"
+printf 'marked bam\n' > "$OUTPUT/03_alignment/marked/S1.bam"
+sed 's/KEEP_MARKED_BAMS=true/KEEP_MARKED_BAMS=false/' "$TMP/config.sh" > "$TMP/remove_marked.sh"
+C2T_CONFIG="$TMP/remove_marked.sh" bash "$ROOT/scripts/cleanup.sh"
+test ! -e "$OUTPUT/03_alignment/marked"
+test ! -e "$OUTPUT/.checkpoints/filtering.json"
 echo "Cleanup checkpoint-invalidation regression test passed"

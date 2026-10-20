@@ -61,10 +61,43 @@ signal.
 
 ## Checkpoints
 
-Each stage checkpoint is JSON containing the complete run signature and hashes
-of declared outputs. The signature covers the sanitized CSV, resolved config,
-workflow version, scripts, reusable `common/` modules, and reference manifest.
-A changed or missing output invalidates the checkpoint.
+Each schema-2 stage checkpoint contains a scientific input/code fingerprint and
+hashes of its declared outputs. `00_metadata/recovery_manifest.json` records the
+stage contracts: relevant resolved settings, sample metadata, reference
+checksums, executable identities/versions, and source hashes. Raw FASTQ content
+is hashed before deciding whether preprocessing can be reused. A downstream
+checkpoint also depends on its upstream checkpoints' completion generations;
+rebuilding upstream work therefore invalidates dependent results even when the
+configuration is unchanged.
+
+The complete run signature remains in `run_manifest.tsv` for provenance.
+It includes the recovery manifest/raw-input hashes, and stage records retain
+their original `producing_run_signature` when reused.
+Invocation IDs, resource limits, generated Python caches, and the workflow's
+installation directory do not invalidate scientific work. A downstream-only
+source fix can preserve compatible upstream stages. Unknown configuration
+settings are conservatively included rather than silently ignored. Before
+metadata is replaced, its previous configuration, sample/reference manifests,
+recovery contracts and software-version table are archived under
+`00_metadata/invocations/`.
+
+A changed or missing recorded output invalidates the checkpoint. Required
+analysis BAM symlinks and indexes are tracked at their original paths, not only
+by their resolved BAM targets. Preprocessing checkpoints include `01_fastq_qc`
+as well as merged/trimmed FASTQs. Completed libraries additionally have records
+under `.checkpoints/preprocess_samples/`, written before final MultiQC
+aggregation. A normal retry after an aggregation failure reuses unchanged
+completed libraries and reruns aggregation. Missing/corrupt library outputs
+invalidate the affected library. Marked-BAM records under `.checkpoints/marked/`
+bind duplicate marking to the current sorted BAM and marking settings.
+Alignment/filtering checkpoints list their own artifacts explicitly so later
+spike-in files in shared directories do not invalidate them. Annotated
+differential tables belong to the annotation checkpoint, not to the original
+differential-model checkpoint.
+
+Enabled MultiQC is executed with `--version` before expensive work, even when
+preflight has a reusable checkpoint. A broken launcher/import therefore stops
+startup with its selected executable and diagnostic-log path.
 
 `00_metadata/stage_timing.tsv` records UTC start/end timestamps and elapsed
 seconds for completed, skipped, reused, and failed stages in the current
@@ -84,23 +117,31 @@ stages:
 bash chip2tracks.sh --config /path/to/config.conf --from-stage qc
 ```
 
-This is an explicit recovery override. Before the requested stage, each existing
-checkpoint is validated against its stored output sizes and SHA-256 hashes and
-its signature adoption is recorded in the checkpoint JSON. If any earlier
-checkpoint or output is missing or changed, recovery stops instead of silently
-rerunning or accepting it. The named stage and all later stages always rerun.
-Select a starting stage at or before the earliest output that could be affected
-by the configuration or code change.
+Before the requested stage, scientific checkpoints must pass both input/code
+compatibility and stored output size/SHA-256 validation. Explicit recovery never
+overrides changed inputs. Preflight may safely rerun to audit changed settings;
+other incompatible earlier stages stop recovery with an actionable message.
+The named stage and all later stages always rerun. Explicitly selecting
+`preprocess` (or `preflight`) also forces its library workers; to recover a final
+preprocessing aggregation failure while reusing completed libraries, invoke the
+workflow normally with the same config and no `--from-stage` option.
 
-If a stage command completes every output but fails during terminal bookkeeping
-before its checkpoint is written, preserve the outputs and validate them with
-the relevant native tools before recovery. A replacement checkpoint may be
-written with `scripts/checkpoint.py write` only after expected file counts,
-indexes, links, and content integrity have all been confirmed and the incident
-has been recorded. Deploy the code correction, then use `--from-stage` on the
-next stage so the replacement checkpoint is explicitly adopted into the new
-workflow signature. Never use this procedure for partial or merely
-size-checked outputs.
+Legacy schema-1 checkpoints do not contain stage input provenance and must not
+be relabelled with new fingerprints. An ordinary retry stops before replacing
+historical metadata or processing outputs if it encounters an unproven legacy
+scientific stage. Explicit recovery also refuses to skip such a stage. Preserve
+the old run's metadata and original immutable release. If
+the historical inputs/settings cannot be independently established, rebuilding
+from the earliest unproven stage is required. Legacy marked BAMs without a
+matching producing-input record are also rebuilt; readability alone is not
+evidence that they derive from the current alignment.
+
+If terminal bookkeeping fails before a stage checkpoint is written, preserve
+the outputs and logs. For preprocessing, retry normally so recorded library
+completions can be validated and reused. For stages without such records,
+native output validation alone cannot prove the producing inputs/settings.
+Do not create a replacement success marker or copy a current fingerprint into
+an older checkpoint to bypass that provenance requirement.
 
 Stop after a stage without editing the workflow:
 

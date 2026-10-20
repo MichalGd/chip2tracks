@@ -6,6 +6,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # shellcheck source=lib/parallel_jobs.sh
 source "${SCRIPT_DIR}/lib/parallel_jobs.sh"
 require_config
+probe_multiqc
 
 mkdir -p "${OUTPUT_DIR}/01_fastq_qc/raw" "${OUTPUT_DIR}/01_fastq_qc/raw_units" "${OUTPUT_DIR}/01_fastq_qc/trimmed" \
     "${OUTPUT_DIR}/01_fastq_qc/multiqc" "${OUTPUT_DIR}/01_fastq_qc/adapters" \
@@ -29,6 +30,17 @@ worker() {
     local work="${OUTPUT_DIR}/02_trimmed_fastq"
     local raw1="${work}/${key}.R1.merged.fastq.gz"
     local raw2="${work}/${key}.R2.merged.fastq.gz" log="${OUTPUT_DIR}/logs/preprocess/${key}.log"
+    local completion="${OUTPUT_DIR}/.checkpoints/preprocess_samples/${key}.json"
+    local input_signature validated_paths
+    local -a completed_outputs
+    input_signature="$(python3 "$SCRIPT_DIR/recovery.py" sample --config "$C2T_CONFIG" --sample-key "$key")"
+    if ! is_true "${CHIP2T_FORCE_PREPROCESS:-false}" && \
+        python3 "$SCRIPT_DIR/checkpoint.py" check --checkpoint "$completion" --stage "preprocess:$key" \
+            --signature "$input_signature" --jobs "${CHECKPOINT_PARALLEL_JOBS:-1}"; then
+        note "Reusing completed preprocessing library: $key"
+        return 0
+    fi
+    rm -f -- "$completion"
     if is_true "$RUN_FASTQC" && is_true "$RUN_FASTQC_PER_TECHNICAL_UNIT"; then
         local unit unit_dir
         local -a unit_r1 unit_r2
@@ -104,6 +116,15 @@ worker() {
             run_logged fastqc --threads "$THREADS_FASTQC" --outdir "${OUTPUT_DIR}/01_fastq_qc/trimmed" "$trimmed1" >>"$log" 2>&1
         fi
     fi
+    # Commit the library before aggregation. A subsequent MultiQC failure must
+    # not discard evidence that trimming and the enabled FastQC tasks finished.
+    validated_paths="$(python3 "$SCRIPT_DIR/recovery.py" sample --config "$C2T_CONFIG" \
+        --sample-key "$key" --validate)"
+    mapfile -t completed_outputs <<< "$validated_paths"
+    gzip -t "${work}/${key}.R1.trimmed.fastq.gz"
+    [[ "$layout" != "PE" ]] || gzip -t "${work}/${key}.R2.trimmed.fastq.gz"
+    python3 "$SCRIPT_DIR/checkpoint.py" write --checkpoint "$completion" --stage "preprocess:$key" \
+        --signature "$input_signature" --outputs "${completed_outputs[@]}" --jobs "${CHECKPOINT_PARALLEL_JOBS:-1}"
 }
 
 parallel_require_positive_integer "THREADS_FASTQC" "$THREADS_FASTQC"
@@ -128,5 +149,7 @@ done
 if is_true "$RUN_MULTIQC"; then
     run_logged multiqc --force --outdir "${OUTPUT_DIR}/01_fastq_qc/multiqc" "${OUTPUT_DIR}/01_fastq_qc" \
         >"${OUTPUT_DIR}/logs/preprocess/multiqc.log" 2>&1
+    [[ -s "${OUTPUT_DIR}/01_fastq_qc/multiqc/multiqc_report.html" ]] || \
+        die "MultiQC returned success without its preprocessing report"
 fi
 printf 'status\nSUCCESS\n' > "${OUTPUT_DIR}/02_trimmed_fastq/stage_status.tsv"

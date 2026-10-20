@@ -6,6 +6,15 @@ peak-caller continuation, filtering cleanup scope, consensus zero-count
 tolerance, genome-order annotation, reporting, source-baseline format and
 scientific helper functions.
 
+Recovery regressions exercise the actual dispatcher with tiny stage fixtures,
+and SE/PE preprocessing with a forced final MultiQC failure. They verify
+library reuse, corrupt-library repair, executable startup checks, stable
+invocation/resource fingerprints, source relocation, downstream-only hotfixes,
+changed raw reads/references/parameters, upstream-generation invalidation,
+explicit-reuse safety, legacy-run preservation, marked-BAM input provenance,
+and required QC/BAM/index/link artifacts. Native symlink checks require a host
+that permits creating symbolic links; they run on Linux CI.
+
 CI runs:
 
 ```bash

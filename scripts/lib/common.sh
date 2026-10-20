@@ -26,6 +26,18 @@ require_config() {
 
 is_true() { [[ "${1,,}" == "true" ]]; }
 
+probe_multiqc() {
+    is_true "${RUN_MULTIQC:-false}" || return 0
+    local executable log
+    executable="$(command -v multiqc)" || die "enabled MultiQC executable is missing"
+    log="${OUTPUT_DIR}/00_metadata/multiqc_preflight.log"
+    mkdir -p "${OUTPUT_DIR}/00_metadata"
+    printf 'executable=%s\n' "$executable" > "$log"
+    if ! multiqc --version >> "$log" 2>&1; then
+        die "MultiQC startup failed ($executable); see $log"
+    fi
+}
+
 reference_value() {
     local prefix="${1:?prefix}" genome="${2:?genome}" key value
     key="${prefix}_$(printf '%s' "$genome" | tr '[:lower:].-' '[:upper:]__')"
